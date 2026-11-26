@@ -1,73 +1,67 @@
 // ------------------------------ Mach-O 64 后端 ---------------------------
-// Layout:
+// Static executable: no dyld, no libSystem. The kernel starts the thread
+// directly from LC_UNIXTHREAD with a writable stack in __DATA.
 //   0x000 header
 //   0x020 LC_SEGMENT_64(__PAGEZERO)
 //   0x068 LC_SEGMENT_64(__TEXT) + one __text section
-//   0x100 LC_BUILD_VERSION
-//   0x118 LC_MAIN
-//   0x130 LC_SEGMENT_64(__LINKEDIT)
-//   0x178 LC_LOAD_DYLINKER
-//   0x198 LC_LOAD_DYLIB (libSystem)
-//   0x200 generated code
+//   0x100 LC_SEGMENT_64(__DATA)  (zero-fill stack)
+//   0x148 LC_SEGMENT_64(__LINKEDIT)
+//   0x190 LC_BUILD_VERSION
+//   0x1A8 LC_UNIXTHREAD
+//   0x300 generated code
 //   0x2000 file size
 fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
     zero_bytes(b, 0x2000);
 
     put32(b, 0, 0xFEEDFACF); put32(b, 4, 0x01000007); put32(b, 8, 3); put32(b, 12, 2);
-    put32(b, 16, 7); put32(b, 20, 0x1B0); put32(b, 24, 0x85);
+    put32(b, 16, 6); put32(b, 20, 0x240); put32(b, 24, 1);
 
-    // __PAGEZERO: 72-byte segment command at 0x20.
+    // __PAGEZERO at 0x20.
     put32(b, 32, 0x19); put32(b, 36, 72);
     put64(b, 64, 0x100000000);
 
-    // __TEXT: 152-byte segment command at 0x68, one section.
+    // __TEXT at 0x68, one __text section.
     put32(b, 104, 0x19); put32(b, 108, 152);
     put8(b, 112, 95); put8(b, 113, 95); put8(b, 114, 84); put8(b, 115, 69); put8(b, 116, 88); put8(b, 117, 84);
     put64(b, 128, 0x100000000); put64(b, 136, 0x2000);
     put64(b, 144, 0); put64(b, 152, 0x2000);
-    put32(b, 160, 7); put32(b, 164, 5); put32(b, 168, 1); put32(b, 172, 0);
+    put32(b, 160, 5); put32(b, 164, 5); put32(b, 168, 1); put32(b, 172, 0);
 
     // __text section at 0xB0.
     put8(b, 176, 95); put8(b, 177, 95); put8(b, 178, 116); put8(b, 179, 101); put8(b, 180, 120); put8(b, 181, 116);
     put8(b, 192, 95); put8(b, 193, 95); put8(b, 194, 84); put8(b, 195, 69); put8(b, 196, 88); put8(b, 197, 84);
-    put64(b, 208, 0x100000200); put64(b, 216, clen + 9);
-    put32(b, 224, 0x200); put32(b, 228, 4);
+    put64(b, 208, 0x100000300); put64(b, 216, clen + 9);
+    put32(b, 224, 0x300); put32(b, 228, 4);
     put32(b, 240, 0x80000400);
 
-    // LC_BUILD_VERSION at 0x100.
-    put32(b, 256, 0x32); put32(b, 260, 24);
-    put32(b, 264, 1); put32(b, 268, 0x000A0000); put32(b, 272, 0x000F0000); put32(b, 276, 0);
+    // __DATA at 0x100: zero-filled 0x4000 bytes, used as the initial stack.
+    put32(b, 256, 0x19); put32(b, 260, 72);
+    put8(b, 264, 95); put8(b, 265, 95); put8(b, 266, 68); put8(b, 267, 65); put8(b, 268, 84); put8(b, 269, 65);
+    put64(b, 280, 0x100002000); put64(b, 288, 0x4000);
+    put64(b, 296, 0x2000); put64(b, 304, 0);
+    put32(b, 312, 7); put32(b, 316, 3); put32(b, 320, 0); put32(b, 324, 0);
 
-    // LC_MAIN at 0x118.
-    put32(b, 280, 0x80000028); put32(b, 284, 24);
-    put64(b, 288, 0x200); put64(b, 296, 0);
+    // __LINKEDIT at 0x148, empty until signing.
+    put32(b, 328, 0x19); put32(b, 332, 72);
+    put8(b, 336, 95); put8(b, 337, 95); put8(b, 338, 76); put8(b, 339, 73); put8(b, 340, 78); put8(b, 341, 75); put8(b, 342, 69); put8(b, 343, 68); put8(b, 344, 73); put8(b, 345, 84);
+    put64(b, 352, 0x100006000); put64(b, 360, 0x1000);
+    put64(b, 368, 0x2000); put64(b, 376, 0);
+    put32(b, 384, 7); put32(b, 388, 1); put32(b, 392, 0); put32(b, 396, 0);
 
-    // __LINKEDIT: 72-byte segment command at 0x130, empty until signing.
-    put32(b, 304, 0x19); put32(b, 308, 72);
-    put8(b, 312, 95); put8(b, 313, 95); put8(b, 314, 76); put8(b, 315, 73); put8(b, 316, 78); put8(b, 317, 75); put8(b, 318, 69); put8(b, 319, 68); put8(b, 320, 73); put8(b, 321, 84);
-    put64(b, 328, 0x100002000); put64(b, 336, 0x1000);
-    put64(b, 344, 0x2000); put64(b, 352, 0);
-    put32(b, 360, 7); put32(b, 364, 1); put32(b, 368, 0); put32(b, 372, 0);
+    // LC_BUILD_VERSION at 0x190.
+    put32(b, 400, 0x32); put32(b, 404, 24);
+    put32(b, 408, 1); put32(b, 412, 0x000A0000); put32(b, 416, 0x000F0000); put32(b, 420, 0);
 
-    // LC_LOAD_DYLINKER at 0x178.
-    put32(b, 376, 0xE); put32(b, 380, 32);
-    put8(b, 388, 47); put8(b, 389, 117); put8(b, 390, 115); put8(b, 391, 114);
-    put8(b, 392, 47); put8(b, 393, 108); put8(b, 394, 105); put8(b, 395, 98);
-    put8(b, 396, 47); put8(b, 397, 100); put8(b, 398, 121); put8(b, 399, 108); put8(b, 400, 100);
+    // LC_UNIXTHREAD at 0x1A8: x86_THREAD_STATE64, 42 words.
+    put32(b, 424, 0x5); put32(b, 428, 184);
+    put32(b, 432, 4); put32(b, 436, 42);
+    put64(b, 496, 0x100006000);   // rsp
+    put64(b, 568, 0x100000300);   // rip
+    put64(b, 576, 0x202);         // rflags
+    put64(b, 584, 0x2B);          // cs
 
-    // LC_LOAD_DYLIB at 0x198.
-    put32(b, 408, 0xC); put32(b, 412, 56);
-    put32(b, 416, 24); put32(b, 420, 0); put32(b, 424, 0); put32(b, 428, 0);
-    put8(b, 432, 47); put8(b, 433, 117); put8(b, 434, 115); put8(b, 435, 114);
-    put8(b, 436, 47); put8(b, 437, 108); put8(b, 438, 105); put8(b, 439, 98);
-    put8(b, 440, 47); put8(b, 441, 108); put8(b, 442, 105); put8(b, 443, 98);
-    put8(b, 444, 83); put8(b, 445, 121); put8(b, 446, 115); put8(b, 447, 116);
-    put8(b, 448, 101); put8(b, 449, 109); put8(b, 450, 46); put8(b, 451, 66);
-    put8(b, 452, 46); put8(b, 453, 100); put8(b, 454, 121); put8(b, 455, 108);
-    put8(b, 456, 105); put8(b, 457, 98);
-
-    copy_text(b, 0x200, code, clen);
-    let off: i64 = 0x200 + clen;
+    copy_text(b, 0x300, code, clen);
+    let off: i64 = 0x300 + clen;
     put8(b, off, 0x89); put8(b, off + 1, 0xC7);
     put8(b, off + 2, 0xB8); put32(b, off + 3, 0x2000001);
     put8(b, off + 7, 0x0F); put8(b, off + 8, 0x05);

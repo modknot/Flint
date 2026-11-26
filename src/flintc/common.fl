@@ -24,6 +24,7 @@ struct Local {
     start: i64,
     len: i64,
     off: i64,
+    ty: i64,
 }
 
 struct Func {
@@ -31,11 +32,26 @@ struct Func {
     len: i64,
     label: i64,
     arity: i64,
+    ret: i64,
 }
 
 struct Call {
     disp: i64,
     name: i64,
+}
+
+struct Struct {
+    start: i64,
+    len: i64,
+    size: i64,
+    first: i64,
+}
+
+struct Field {
+    start: i64,
+    len: i64,
+    off: i64,
+    ty: i64,
 }
 
 struct Ctx {
@@ -52,6 +68,10 @@ struct Ctx {
     fc: ^i64,
     calls: ^Call,
     cn: ^i64,
+    structs: ^Struct,
+    fields: ^Field,
+    sc: ^i64,
+    fcn: ^i64,
 }
 
 // ------------------------------ 字节工具 --------------------------------

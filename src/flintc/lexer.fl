@@ -21,6 +21,7 @@ fn keyword(src: ^u8, o: i64, n: i64) -> i64 {
     if n == 2 {
         if src[o] as i64 == 102 { if src[o + 1] as i64 == 110 { return 3; } }
         if src[o] as i64 == 105 { if src[o + 1] as i64 == 102 { return 6; } }
+        if src[o] as i64 == 97 { if src[o + 1] as i64 == 115 { return 39; } }
     }
     if n == 3 {
         if src[o] as i64 == 108 { if src[o + 1] as i64 == 101 { if src[o + 2] as i64 == 116 { return 4; } } }
@@ -33,6 +34,7 @@ fn keyword(src: ^u8, o: i64, n: i64) -> i64 {
     }
     if n == 6 {
         if src[o] as i64 == 114 { if src[o + 1] as i64 == 101 { if src[o + 2] as i64 == 116 { if src[o + 3] as i64 == 117 { if src[o + 4] as i64 == 114 { if src[o + 5] as i64 == 110 { return 5; } } } } } }
+        if src[o] as i64 == 115 { if src[o + 1] as i64 == 116 { if src[o + 2] as i64 == 114 { if src[o + 3] as i64 == 117 { if src[o + 4] as i64 == 99 { if src[o + 5] as i64 == 116 { return 38; } } } } } }
     }
     return 0;
 }
@@ -93,7 +95,17 @@ fn lex(src: ^u8, n: i64, toks: ^Token) -> i64 {
             if b == 44 { k = 13; i += 1; }
             if b == 58 { k = 14; i += 1; }
             if b == 59 { k = 15; i += 1; }
-            if b == 43 { k = 17; i += 1; }
+            if b == 94 { k = 30; i += 1; }
+            if b == 91 { k = 31; i += 1; }
+            if b == 93 { k = 32; i += 1; }
+            if b == 46 {
+                if i + 1 < n { if src[i + 1] as i64 == 42 { k = 37; i += 2; } else { k = 36; i += 1; } }
+                else { k = 36; i += 1; }
+            }
+            if b == 43 {
+                if i + 1 < n { if src[i + 1] as i64 == 61 { k = 40; i += 2; } else { k = 17; i += 1; } }
+                else { k = 17; i += 1; }
+            }
             if b == 42 { k = 19; i += 1; }
             if b == 47 { k = 20; i += 1; }
             if b == 37 { k = 21; i += 1; }

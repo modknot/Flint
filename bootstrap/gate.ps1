@@ -1,21 +1,20 @@
 # ===========================================================================
 # 自举闸门：从算术到最小源码驱动编译器骨架。
 # 每一级都是"用 Flint 写编译器"真正需要的底层能力。
-# 种子能过到哪一级，就说明自举条件具备到哪一步；第一处失败即下一阶段任务。
+# 上一级编译器能过到哪一级，就说明自举条件具备到哪一步；第一处失败即下一阶段任务。
 # 用法：pwsh -NoProfile -File bootstrap\gate.ps1
 # ===========================================================================
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $root 'scripts\flint-source.ps1')
-$seed = Join-Path $root 'build\flint-seed.exe'
+$stage0 = Join-Path $root 'bootstrap\flintc0.exe'
 $ladder = Join-Path $PSScriptRoot 'ladder'
 $outDir = Join-Path $root 'build\bootstrap'
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
-if (-not (Test-Path -LiteralPath $seed)) {
-    Write-Host '[gate] 种子不存在，先构建'
-    & pwsh -NoProfile -File (Join-Path $root 'build.ps1')
-    if ($LASTEXITCODE -ne 0) { exit 1 }
+if (-not (Test-Path -LiteralPath $stage0)) {
+    Write-Host '[gate] bootstrap/flintc0.exe 不存在'
+    exit 1
 }
 
 $report = @()
@@ -44,7 +43,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $ladder -Filter *.fl | Sort-Object Na
         $compileSrc = $unit
     }
 
-    $compile = (& $seed $compileSrc $exe 2>&1 | Out-String).Trim()
+    $compile = (& $stage0 $compileSrc $exe 2>&1 | Out-String).Trim()
     if (-not (Test-Path -LiteralPath $exe)) {
         $reason = ($compile -split "`n" | Where-Object { $_ -match 'error|失败|不是' } | Select-Object -First 1)
         if (-not $reason) { $reason = $compile }

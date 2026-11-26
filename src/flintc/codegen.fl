@@ -48,6 +48,51 @@ fn gen_args(c: ^Ctx, a: ^Node) {
     eb(c, 0x50);
 }
 
+fn gen_addr(c: ^Ctx, n: ^Node) {
+    if n == 0 { eb(c, 0x31); eb(c, 0xC0); return; }
+    let k: i64 = n.kind;
+    if k == 13 {
+        let off: i64 = local_find(c, n.val);
+        eb(c, 0x48); eb(c, 0x8D); eb(c, 0x85); e32(c, off);
+        return;
+    }
+    if k == 16 {
+        gen_expr(c, n.left);
+        eb(c, 0x50);
+        gen_expr(c, n.right);
+        eb(c, 0x59);
+        let es: i64 = elem_size(c, expr_type(c, n.left));
+        if es == 2 { eb(c, 0x48); eb(c, 0x6B); eb(c, 0xC0); eb(c, 2); }
+        if es == 4 { eb(c, 0x48); eb(c, 0x6B); eb(c, 0xC0); eb(c, 4); }
+        if es == 8 { eb(c, 0x48); eb(c, 0xC1); eb(c, 0xE0); eb(c, 3); }
+        if es == 16 { eb(c, 0x48); eb(c, 0xC1); eb(c, 0xE0); eb(c, 4); }
+        if es == 32 { eb(c, 0x48); eb(c, 0xC1); eb(c, 0xE0); eb(c, 5); }
+        if es == 64 { eb(c, 0x48); eb(c, 0xC1); eb(c, 0xE0); eb(c, 6); }
+        if es > 1 {
+            if es != 2 { if es != 4 { if es != 8 { if es != 16 { if es != 32 { if es != 64 {
+                eb(c, 0x48); eb(c, 0x69); eb(c, 0xC0); e32(c, es);
+            } } } } } }
+        }
+        eb(c, 0x48); eb(c, 0x01); eb(c, 0xC8);
+        return;
+    }
+    if k == 19 {
+        gen_addr(c, n.left);
+        let sid: i64 = struct_of_type(expr_type(c, n.left));
+        if sid > 0 {
+            let fi: i64 = field_find(c, sid, n.val);
+            if fi >= 0 {
+                eb(c, 0x48); eb(c, 0x05); e32(c, c.fields[fi].off);
+            }
+        }
+        return;
+    }
+    if k == 18 {
+        gen_expr(c, n.left);
+        return;
+    }
+    gen_expr(c, n);
+}
 fn gen_expr(c: ^Ctx, n: ^Node) {
     if n == 0 { eb(c, 0x31); eb(c, 0xC0); return; }
     let k: i64 = n.kind;
@@ -71,6 +116,29 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
         if ac > 0 {
             eb(c, 0x48); eb(c, 0x81); eb(c, 0xC4); e32(c, ac * 8);
         }
+        return;
+    }
+    if k == 16 {
+        gen_addr(c, n);
+        let et: i64 = pointee_type(expr_type(c, n.left));
+        let es: i64 = type_size(c, et);
+        if es == 1 { eb(c, 0x0F); eb(c, 0xB6); eb(c, 0x00); }
+        else { if es == 8 { eb(c, 0x48); eb(c, 0x8B); eb(c, 0x00); } }
+        return;
+    }
+    if k == 17 {
+        gen_expr(c, n.left);
+        if n.val == 1 { eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        return;
+    }
+    if k == 18 {
+        gen_addr(c, n);
+        eb(c, 0x48); eb(c, 0x8B); eb(c, 0x00);
+        return;
+    }
+    if k == 19 {
+        gen_addr(c, n);
+        eb(c, 0x48); eb(c, 0x8B); eb(c, 0x00);
         return;
     }
     if k == 11 {
@@ -99,10 +167,29 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
     }
 }
 
+fn gen_store(c: ^Ctx, lhs: ^Node, rhs: ^Node, op: i64) {
+    gen_addr(c, lhs);
+    eb(c, 0x50);
+    if op != 0 {
+        eb(c, 0x48); eb(c, 0x8B); eb(c, 0x08);
+        eb(c, 0x51);
+        gen_expr(c, rhs);
+        eb(c, 0x59);
+        if op == 17 { eb(c, 0x48); eb(c, 0x01); eb(c, 0xC8); }
+        if op == 18 { eb(c, 0x48); eb(c, 0x29); eb(c, 0xC1); eb(c, 0x48); eb(c, 0x89); eb(c, 0xC8); }
+    } else {
+        gen_expr(c, rhs);
+    }
+    eb(c, 0x5A);
+    let sz: i64 = type_size(c, expr_type(c, lhs));
+    if sz == 1 { eb(c, 0x88); eb(c, 0x02); }
+    else { eb(c, 0x48); eb(c, 0x89); eb(c, 0x02); }
+}
+
 fn collect_locals(c: ^Ctx, n: ^Node) {
     let s: ^Node = n;
     while s != 0 {
-        if s.kind == 93 { local_add(c, s.val); }
+        if s.kind == 93 { local_add(c, s.val, s.start); }
         collect_locals(c, s.body);
         collect_locals(c, s.right);
         s = s.next;
@@ -113,7 +200,7 @@ fn add_params(c: ^Ctx, p: ^Node) {
     let idx_p: i64 = 0;
     let q: ^Node = p;
     while q != 0 {
-        param_add(c, q.val, idx_p);
+        param_add(c, q.val, idx_p, q.start);
         idx_p += 1;
         q = q.next;
     }
@@ -134,11 +221,8 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             c.rets[c.rn.*] = p;
             c.rn.* = c.rn.* + 1;
         }
-        if k == 97 {
-            gen_expr(c, s.left);
-            let off_asn: i64 = local_find(c, s.val);
-            if off_asn != 0 { store_local(c, off_asn); }
-        }
+        if k == 97 { gen_store(c, s.left, s.right, 0); }
+        if k == 99 { gen_store(c, s.left, s.right, s.val); }
         if k == 98 { gen_expr(c, s.left); }
         if k == 95 {
             gen_expr(c, s.left);
@@ -213,6 +297,8 @@ fn gen_program(c: ^Ctx, prog: ^Node) -> i64 {
     while f != 0 {
         if f.kind == 91 {
             func_add(c, f.val, c.clen.*, param_count(f.left));
+            c.funcs[c.fc.* - 1].ret = f.start;
+
             gen_fn(c, f);
         }
         f = f.next;

@@ -25,10 +25,15 @@ fn main() -> i64 {
     let fnp: ^i64 = alloc(8, 8); fnp.* = 0;
     let callsp: ^Call = alloc(32768, 8);
     let cnp: ^i64 = alloc(8, 8); cnp.* = 0;
-    let c: ^Ctx = alloc(104, 8);
+    let structs: ^Struct = alloc(2048, 8);
+    let fields: ^Field = alloc(4096, 8);
+    let scp: ^i64 = alloc(8, 8); scp.* = 0;
+    let fcn: ^i64 = alloc(8, 8); fcn.* = 0;
+    let c: ^Ctx = alloc(136, 8);
     c.toks = toks; c.src = src; c.locals = locals; c.ln = ln; c.pos = pos;
     c.code = code; c.clen = clen; c.rets = rets; c.rn = rn;
     c.funcs = funcs; c.fc = fnp; c.calls = callsp; c.cn = cnp;
+    c.structs = structs; c.fields = fields; c.sc = scp; c.fcn = fcn;
 
     let prog: ^Node = parse_program(c);
     if prog == 0 { print(0); return 1; }

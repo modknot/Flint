@@ -13,20 +13,21 @@ fn expect(c: ^Ctx, k: i64) {
     if peek(c) == k { advance(c); } else { advance(c); }
 }
 
-fn local_put(c: ^Ctx, tok: i64, off: i64) {
+fn local_put(c: ^Ctx, tok: i64, off: i64, ty: i64) {
     let i: i64 = c.ln.*;
     c.locals[i].start = c.toks[tok].start;
     c.locals[i].len = c.toks[tok].len;
     c.locals[i].off = off;
+    c.locals[i].ty = ty;
     c.ln.* = i + 1;
 }
 
-fn local_add(c: ^Ctx, tok: i64) {
-    local_put(c, tok, 0 - (c.ln.* + 1) * 8);
+fn local_add(c: ^Ctx, tok: i64, ty: i64) {
+    local_put(c, tok, 0 - (c.ln.* + 1) * 8, ty);
 }
 
-fn param_add(c: ^Ctx, tok: i64, idx: i64) {
-    local_put(c, tok, 16 + idx * 8);
+fn param_add(c: ^Ctx, tok: i64, idx: i64, ty: i64) {
+    local_put(c, tok, 16 + idx * 8, ty);
 }
 
 fn same_name(c: ^Ctx, a: i64, b: i64) -> i64 {
@@ -37,6 +38,121 @@ fn same_name(c: ^Ctx, a: i64, b: i64) -> i64 {
         j += 1;
     }
     return 1;
+}
+
+fn type_is_u8(c: ^Ctx, tok: i64) -> i64 {
+    if c.toks[tok].len != 2 { return 0; }
+    if c.src[c.toks[tok].start] as i64 != 117 { return 0; }
+    if c.src[c.toks[tok].start + 1] as i64 != 56 { return 0; }
+    return 1;
+}
+
+fn type_is_i64(c: ^Ctx, tok: i64) -> i64 {
+    if c.toks[tok].len != 3 { return 0; }
+    if c.src[c.toks[tok].start] as i64 != 105 { return 0; }
+    if c.src[c.toks[tok].start + 1] as i64 != 54 { return 0; }
+    if c.src[c.toks[tok].start + 2] as i64 != 52 { return 0; }
+    return 1;
+}
+
+fn struct_add(c: ^Ctx, tok: i64, size: i64, first: i64) -> i64 {
+    let i: i64 = c.sc.*;
+    c.structs[i].start = c.toks[tok].start;
+    c.structs[i].len = c.toks[tok].len;
+    c.structs[i].size = size;
+    c.structs[i].first = first;
+    c.sc.* = i + 1;
+    return i + 1;
+}
+
+fn field_add(c: ^Ctx, tok: i64, off: i64, ty: i64) {
+    let i: i64 = c.fcn.*;
+    c.fields[i].start = c.toks[tok].start;
+    c.fields[i].len = c.toks[tok].len;
+    c.fields[i].off = off;
+    c.fields[i].ty = ty;
+    c.fcn.* = i + 1;
+}
+
+fn struct_find(c: ^Ctx, tok: i64) -> i64 {
+    let i: i64 = 0;
+    while i < c.sc.* {
+        if c.structs[i].len == c.toks[tok].len {
+            let j: i64 = 0;
+            let ok: i64 = 1;
+            while j < c.structs[i].len {
+                if c.src[c.structs[i].start + j] as i64 != c.src[c.toks[tok].start + j] as i64 { ok = 0; }
+                j += 1;
+            }
+            if ok == 1 { return i + 1; }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+fn field_find(c: ^Ctx, sid: i64, tok: i64) -> i64 {
+    let i: i64 = 0;
+    while i < c.structs[sid - 1].size / 8 {
+        let f: ^Field = c.fields;
+        let fi: i64 = c.structs[sid - 1].first + i;
+        if f[fi].len == c.toks[tok].len {
+            let j: i64 = 0;
+            let ok: i64 = 1;
+            while j < f[fi].len {
+                if c.src[f[fi].start + j] as i64 != c.src[c.toks[tok].start + j] as i64 { ok = 0; }
+                j += 1;
+            }
+            if ok == 1 { return fi; }
+        }
+        i += 1;
+    }
+    return -1;
+}
+
+fn struct_of_type(ty: i64) -> i64 {
+    if ty >= 0x200 { return ty - 0x200; }
+    if ty >= 0x100 { return ty - 0x100; }
+    return 0;
+}
+
+fn pointee_type(ty: i64) -> i64 {
+    if ty == 2 { return 1; }
+    if ty == 3 { return 0; }
+    if ty >= 0x100 { return ty - 0x100 + 0x200; }
+    return 0;
+}
+
+fn type_size(c: ^Ctx, ty: i64) -> i64 {
+    if ty == 1 { return 1; }
+    if ty >= 0x200 { return c.structs[ty - 0x200 - 1].size; }
+    return 8;
+}
+
+fn elem_size(c: ^Ctx, ty: i64) -> i64 {
+    return type_size(c, pointee_type(ty));
+}
+
+fn parse_type(c: ^Ctx) -> i64 {
+    let ptr: i64 = 0;
+    if peek(c) == 30 { advance(c); ptr = 1; }
+    let tok: i64 = c.pos.*;
+    advance(c);
+    let ty: i64 = 0;
+    if type_is_u8(c, tok) == 1 { ty = 1; }
+    else {
+        if type_is_i64(c, tok) == 1 { ty = 0; }
+        else {
+            let sid: i64 = struct_find(c, tok);
+            if sid > 0 { ty = 0x200 + sid; }
+        }
+    }
+    if ptr == 1 {
+        if ty == 1 { return 2; }
+        if ty == 0 { return 3; }
+        if ty >= 0x200 { return ty - 0x200 + 0x100; }
+    }
+    return ty;
 }
 
 fn is_main_name(c: ^Ctx, tok: i64) -> i64 {
@@ -61,6 +177,7 @@ fn func_add(c: ^Ctx, tok: i64, label: i64, arity: i64) {
     c.funcs[i].len = c.toks[tok].len;
     c.funcs[i].label = label;
     c.funcs[i].arity = arity;
+    c.funcs[i].ret = 0;
     c.fc.* = i + 1;
 }
 
@@ -112,7 +229,41 @@ fn local_find(c: ^Ctx, tok: i64) -> i64 {
     return 0;
 }
 
-fn parse_primary(c: ^Ctx) -> ^Node {
+fn local_type(c: ^Ctx, tok: i64) -> i64 {
+    let i: i64 = 0;
+    while i < c.ln.* {
+        if c.locals[i].len == c.toks[tok].len {
+            let j: i64 = 0;
+            let ok: i64 = 1;
+            while j < c.locals[i].len {
+                if c.src[c.locals[i].start + j] as i64 != c.src[c.toks[tok].start + j] as i64 { ok = 0; }
+                j += 1;
+            }
+            if ok == 1 { return c.locals[i].ty; }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+fn func_ret(c: ^Ctx, tok: i64) -> i64 {
+    let i: i64 = 0;
+    while i < c.fc.* {
+        if c.funcs[i].len == c.toks[tok].len {
+            let j: i64 = 0;
+            let ok: i64 = 1;
+            while j < c.funcs[i].len {
+                if c.src[c.funcs[i].start + j] as i64 != c.src[c.toks[tok].start + j] as i64 { ok = 0; }
+                j += 1;
+            }
+            if ok == 1 { return c.funcs[i].ret; }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+fn parse_atom(c: ^Ctx) -> ^Node {
     if peek(c) == 2 {
         let idx_i: i64 = c.pos.*;
         let node_i: ^Node = new_node(12, c.toks[idx_i].val);
@@ -160,6 +311,50 @@ fn parse_primary(c: ^Ctx) -> ^Node {
     let node_zero: ^Node = new_node(12, 0);
     advance(c);
     return node_zero;
+}
+
+fn parse_postfix(c: ^Ctx) -> ^Node {
+    let e: ^Node = parse_atom(c);
+    let go: i64 = 1;
+    while go == 1 {
+        if peek(c) == 31 {
+            advance(c);
+            let idx: ^Node = parse_cmp(c);
+            expect(c, 32);
+            let node_ix: ^Node = new_node(16, 0);
+            node_ix.left = e; node_ix.right = idx;
+            e = node_ix;
+        } else {
+            if peek(c) == 37 {
+                advance(c);
+                let node_dr: ^Node = new_node(18, 0);
+                node_dr.left = e;
+                e = node_dr;
+            } else {
+                if peek(c) == 36 {
+                    advance(c);
+                    let ft: i64 = c.pos.*;
+                    advance(c);
+                    let node_fd: ^Node = new_node(19, ft);
+                    node_fd.left = e;
+                    e = node_fd;
+                } else {
+                    if peek(c) == 39 {
+                        advance(c);
+                        let ty: i64 = parse_type(c);
+                        let node_cs: ^Node = new_node(17, ty);
+                        node_cs.left = e;
+                        e = node_cs;
+                    } else { go = 0; }
+                }
+            }
+        }
+    }
+    return e;
+}
+
+fn parse_primary(c: ^Ctx) -> ^Node {
+    return parse_postfix(c);
 }
 
 fn parse_term(c: ^Ctx) -> ^Node {
@@ -228,16 +423,37 @@ fn parse_cmp(c: ^Ctx) -> ^Node {
     return left_c;
 }
 
+fn expr_type(c: ^Ctx, n: ^Node) -> i64 {
+    if n == 0 { return 0; }
+    let k: i64 = n.kind;
+    if k == 13 { return local_type(c, n.val); }
+    if k == 16 { return pointee_type(expr_type(c, n.left)); }
+    if k == 17 { return n.val; }
+    if k == 18 { return pointee_type(expr_type(c, n.left)); }
+    if k == 19 {
+        let sid: i64 = struct_of_type(expr_type(c, n.left));
+        if sid > 0 {
+            let fi: i64 = field_find(c, sid, n.val);
+            if fi >= 0 { return c.fields[fi].ty; }
+        }
+        return 0;
+    }
+    if k == 14 { return func_ret(c, n.val); }
+    return 0;
+}
+
 fn parse_stmt(c: ^Ctx) -> ^Node {
     let n: ^Node = 0;
     if peek(c) == 4 {
         advance(c);
         let name_let: i64 = c.pos.*;
         advance(c);
-        if peek(c) == 14 { advance(c); advance(c); }
+        let ty_let: i64 = 0;
+        if peek(c) == 14 { advance(c); ty_let = parse_type(c); }
         expect(c, 22);
         let expr_let: ^Node = parse_cmp(c);
         n = new_node(93, name_let);
+        n.start = ty_let;
         n.left = expr_let;
     } else {
         if peek(c) == 5 {
@@ -263,15 +479,27 @@ fn parse_stmt(c: ^Ctx) -> ^Node {
                     } else {
                         if peek(c) == 15 { advance(c); }
                         else {
-                            if peek(c) == 1 {
-                                if c.toks[c.pos.* + 1].kind == 22 {
-                                    let name_asn: i64 = c.pos.*;
-                                    advance(c); advance(c);
-                                    n = new_node(97, name_asn);
-                                    n.left = parse_cmp(c);
+                            if peek(c) != 12 {
+                                if peek(c) != 0 {
+                                    let lhs: ^Node = parse_cmp(c);
+                                    if peek(c) == 22 {
+                                        advance(c);
+                                        n = new_node(97, 0);
+                                        n.left = lhs;
+                                        n.right = parse_cmp(c);
+                                    } else {
+                                        if peek(c) == 40 {
+                                            advance(c);
+                                            n = new_node(99, 17);
+                                            n.left = lhs;
+                                            n.right = parse_cmp(c);
+                                        } else {
+                                            n = new_node(98, 0);
+                                            n.left = lhs;
+                                        }
+                                    }
                                 }
                             }
-                            if n == 0 { if peek(c) != 15 { if peek(c) != 12 { if peek(c) != 0 { n = new_node(98, 0); n.left = parse_cmp(c); } } } }
                         }
                     }
                 }
@@ -317,11 +545,10 @@ fn parse_fn(c: ^Ctx) -> ^Node {
             if peek(c) == 1 {
                 let ptok: i64 = c.pos.*;
                 advance(c);
-                if peek(c) == 14 {
-                    advance(c);
-                    if peek(c) != 13 { if peek(c) != 10 { advance(c); } }
-                }
+                let pty: i64 = 0;
+                if peek(c) == 14 { advance(c); pty = parse_type(c); }
                 let pnode: ^Node = new_node(92, ptok);
+                pnode.start = pty;
                 if phead == 0 { phead = pnode; ptail = pnode; }
                 else { ptail.next = pnode; ptail = pnode; }
                 if peek(c) == 13 { advance(c); }
@@ -329,14 +556,50 @@ fn parse_fn(c: ^Ctx) -> ^Node {
         }
     }
     if peek(c) == 10 { advance(c); }
-    if peek(c) == 16 {
-        advance(c);
-        while peek(c) != 11 { if peek(c) == 0 { advance(c); } else { advance(c); } }
-    }
+    let ret: i64 = 0;
+    if peek(c) == 16 { advance(c); ret = parse_type(c); }
     let body: ^Node = parse_block(c);
     let n: ^Node = new_node(91, name);
+    n.start = ret;
     n.left = phead;
     n.body = body;
+    return n;
+}
+
+fn parse_struct(c: ^Ctx) -> ^Node {
+    expect(c, 38);
+    let name: i64 = c.pos.*;
+    advance(c);
+    expect(c, 11);
+    let fhead: ^Node = 0;
+    let ftail: ^Node = 0;
+    let off: i64 = 0;
+    let first: i64 = c.fcn.*;
+    while peek(c) != 12 {
+        if peek(c) == 0 { advance(c); }
+        else {
+            if peek(c) == 1 {
+                let ftok: i64 = c.pos.*;
+                advance(c);
+                expect(c, 14);
+                let fty: i64 = parse_type(c);
+                field_add(c, ftok, off, fty);
+                let fnode: ^Node = new_node(89, ftok);
+                fnode.start = off;
+                fnode.len = fty;
+                if fhead == 0 { fhead = fnode; ftail = fnode; }
+                else { ftail.next = fnode; ftail = fnode; }
+                off += 8;
+                if peek(c) == 13 { advance(c); }
+            } else { advance(c); }
+        }
+    }
+    expect(c, 12);
+    let sid: i64 = struct_add(c, name, off, first);
+    let n: ^Node = new_node(90, name);
+    n.start = off;
+    n.len = sid;
+    n.body = fhead;
     return n;
 }
 
@@ -344,7 +607,9 @@ fn parse_program(c: ^Ctx) -> ^Node {
     let head: ^Node = 0;
     let tail: ^Node = 0;
     while peek(c) != 0 {
-        let f: ^Node = parse_fn(c);
+        let f: ^Node = 0;
+        if peek(c) == 38 { f = parse_struct(c); }
+        else { f = parse_fn(c); }
         if head == 0 { head = f; tail = f; }
         else { tail.next = f; tail = f; }
     }

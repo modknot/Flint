@@ -12,25 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install NASM 2.16.03
+      - name: Build flintc with the previous compiler
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $zip = Join-Path $env:RUNNER_TEMP 'nasm.zip'
-          Invoke-WebRequest -Uri 'https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip' -OutFile $zip
-          $dest = Join-Path $env:RUNNER_TEMP 'nasm'
-          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
-          $exe = Get-ChildItem -Path $dest -Recurse -Filter nasm.exe | Select-Object -First 1
-          if (-not $exe) { throw 'nasm.exe not found in archive' }
-          New-Item -ItemType Directory -Force -Path 'tools\nasm-2.16.03' | Out-Null
-          Copy-Item -LiteralPath $exe.FullName -Destination 'tools\nasm-2.16.03\nasm.exe'
-
-      - name: Build seed and flintc
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          pwsh -NoProfile -File build.ps1
-          if ($LASTEXITCODE -ne 0) { exit 1 }
           pwsh -NoProfile -File build-flintc.ps1
           if ($LASTEXITCODE -ne 0) { exit 1 }
 

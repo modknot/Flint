@@ -5,9 +5,9 @@
 # ===========================================================================
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$seed = Join-Path $root 'build\flint-seed.exe'
+$stage0 = Join-Path $root 'bootstrap\flintc0.exe'
 $work = Join-Path $root 'build\testrun'
-if (-not (Test-Path -LiteralPath $seed)) { throw "缺少种子编译器: $seed（先运行 build.ps1）" }
+if (-not (Test-Path -LiteralPath $stage0)) { throw "缺少上一级编译器: $stage0" }
 if (-not (Test-Path -LiteralPath $work)) { New-Item -ItemType Directory -Path $work | Out-Null }
 
 # 正例：期望 stdout 行数组 + 期望进程退出码
@@ -43,7 +43,7 @@ Write-Host '--- 正例 ---'
 foreach ($t in $pos) {
     $src = Join-Path $root ('tests\p0\pos\' + $t.file)
     $exe = Join-Path $work ([IO.Path]::GetFileNameWithoutExtension($t.file) + '.exe')
-    $compile = & $seed $src $exe 2>&1
+    $compile = & $stage0 $src $exe 2>&1
     if ($LASTEXITCODE -ne 0) {
         $fail++; $failList += ($t.file + ' 编译失败: ' + ($compile -join ' / ')); continue
     }
@@ -62,7 +62,7 @@ foreach ($t in $pos) {
 Write-Host '--- 反例 ---'
 foreach ($t in $neg) {
     $src = Join-Path $root ('tests\p0\neg\' + $t.file)
-    $out = & $seed $src (Join-Path $work 'neg.exe') 2>&1
+    $out = & $stage0 $src (Join-Path $work 'neg.exe') 2>&1
     $code = $LASTEXITCODE
     $text = ($out | Out-String)
     $okMsg = $text.Contains($t.msg)

@@ -1,20 +1,28 @@
 # Flint
 
 Flint is a from-scratch systems-level programming language and compiler toolchain.
-The bootstrap starts with a hand-written x86-64 NASM seed compiler. No C, Rust,
-or Python host is used, and the project does not depend on LLVM, GCC, Clang,
-ANTLR, Bison, Yacc, Tree-sitter, parser generators, third-party code generators,
-or an existing VM framework.
+It does not depend on LLVM, GCC, Clang, ANTLR, Bison, Yacc, Tree-sitter, parser
+generators, third-party code generators, or an existing VM framework.
 
-The goal is to grow the seed into a self-hosted Flint compiler written in Flint.
+The compiler is built by its previous version:
+
+```text
+bootstrap/flintc0.exe -> flintc -> next flintc -> ...
+```
+
+`bootstrap/flintc0.exe` is the checked-in stage-0 compiler. It starts the chain;
+later stages are compiled from `src/flintc` by the compiler that came before
+them. No assembler is required to build the project.
 
 ## Status
 
-- Stage 0 seed compiler: **17 / 17** acceptance tests.
+- Stage 0 acceptance tests: **17 / 17**.
 - Bootstrap gate: **13 / 13** (`bootstrap/gate.ps1`).
-- `flintc` v0.4 supports `fn`, `let`, `return`, `if/else`, `while`, assignment,
-  `+ - * / %`, comparisons, local variables, multiple functions, function
-  parameters, function calls, and recursion.
+- `flintc` supports `fn`, `let`, `return`, `if/else`, `while`, assignment,
+  `+ - * / %`, comparisons, local variables, multiple functions, parameters,
+  calls, and recursion.
+- The parser and code generator also carry `struct`, field access, pointer
+  indexing, dereference (`.*`), casts (`as u8` / `as i64`), and `+=`.
 - One compiler source produces three target formats:
   **PE32+**, **ELF64**, and **Mach-O 64** for x86-64.
 - The generated sample (`add`, recursive `fact`, and `main`) returns exit code
@@ -28,63 +36,50 @@ by the target executable's exit code.
 
 ## Bootstrap chain
 
+The earliest assembly seed of the prototype has been retired. The repository now
+starts from an opaque stage-0 binary and keeps the rest of the chain in Flint.
+
 ```text
-NASM seed -> first flintc -> next flintc -> ...
+stage-0 binary -> first flintc -> next flintc -> ...
 ```
 
-The NASM seed is only the first step. Once `flintc` can compile its own Flint
-source, the next compiler version is built by the previous `flintc`; the seed is
-no longer part of the chain. The three operating systems are not three seeds:
-they are three backends of the same compiler source.
-
-Until `flintc` can parse its own complete source, build scripts expand the
-`// include:` directives in `src/flintc/flintc.fl` into one translation unit
-before invoking the seed. The source is modular; the include expansion is a
-bootstrap-era build step.
+`build-flintc.ps1` expands the `// include:` directives in
+`src/flintc/flintc.fl` into one translation unit, then passes it to
+`bootstrap/flintc0.exe`. Build outputs stay in `build/` and are never committed.
 
 ## Source layout
 
 ```text
-build.ps1                  assemble the NASM seed (two-pass PE build)
+bootstrap/flintc0.exe      checked-in stage-0 compiler used for the first build
 build-flintc.ps1           expand Flint includes and compile flintc
 scripts/flint-source.ps1   recursive // include: expansion
-src/seed/                  NASM seed compiler and its runtime
 src/flintc/flintc.fl       flintc source root; includes the modules below
-src/flintc/common.fl       token/node/local/function structures, byte helpers
+src/flintc/common.fl       token/node/local/function/struct structures
 src/flintc/lexer.fl        lexer and keyword table
-src/flintc/parser.fl       AST, expressions, statements, functions, calls
+src/flintc/parser.fl       AST, types, expressions, statements, calls, structs
 src/flintc/codegen.fl      x86-64 code generation and call patching
 src/flintc/backend_pe.fl   PE32+ writer
 src/flintc/backend_elf.fl  ELF64 writer
 src/flintc/backend_macho.fl Mach-O 64 writer
 src/flintc/main.fl         flintc entry point
 src/flintc/sample.fl       sample input compiled into the three targets
-bootstrap/                 bootstrap gate and ladder tests
+bootstrap/                 gate, ladder, and the stage-0 binary
 tests/                     stage-0 regression and specification examples
-docs/                      design, acceptance, specification, bootstrap notes
+docs/                      design, acceptance, and bootstrap notes
 ```
 
 ## Build
 
-Requirements: PowerShell 7 and NASM 2.16.03.
-
-Place NASM at `tools/nasm-2.16.03/nasm.exe`, or make `nasm` available on `PATH`.
+Requirements: PowerShell 7. No assembler, C compiler, linker, or package
+manager is required.
 
 ```powershell
-pwsh -NoProfile -File build.ps1        # build build/flint-seed.exe
 pwsh -NoProfile -File build-flintc.ps1 # build build/flintc.exe from split sources
 ```
-
-The build scripts intentionally do not write absolute local paths into the
-repository. Tool binaries and build outputs are ignored by Git.
 
 ## Run
 
 ```powershell
-build\flint-seed.exe --version
-build\flint-seed.exe --tokens src\flintc\sample.fl
-build\flint-seed.exe src\flintc\sample.fl build\sample.exe
-
 build\flintc.exe
 build\flintc-pe.exe
 ```
@@ -112,8 +107,10 @@ Expected results:
 
 Implemented in `flintc`:
 
-- `fn` declarations with typed parameters and an `i64` return type
-- `let`, `return`, `if/else`, `while`, assignment
+- `fn` declarations with typed parameters and return types
+- `struct` declarations with named fields
+- field access, pointer indexing, dereference, and `as` casts
+- `let`, `return`, `if/else`, `while`, assignment, `+=`
 - integer arithmetic `+ - * / %`, comparisons, unary minus
 - local variables and stack frames
 - multiple functions, calls, forward calls, recursion
@@ -123,28 +120,29 @@ Implemented in `flintc`:
 Not implemented yet:
 
 - string literals
-- structs, arrays, field/index access
+- arrays with declared bounds and aggregate values
 - global variables and modules
 - command-line input; `sample.fl` is currently fixed
 - relocations, symbol tables, dynamic linking
-- a self-hosted `flintc` build
+- a fixed-point self-hosted build
 
 ## Backend notes
 
 - PE: one `.text` section, entry RVA `0x1000`, IAT at RVA `0x2000`, imports
   `KERNEL32.dll!ExitProcess`, exit stub after the generated code.
 - ELF64: one `PT_LOAD`, entry `0x400078`, Linux `exit` syscall 60.
-- Mach-O 64: static `__TEXT` / `__DATA` / `__LINKEDIT` segments, `LC_UNIXTHREAD`
-  entry at file offset `0x300`, a `0x4000`-byte zero-filled stack in `__DATA`,
-  and the macOS `exit` syscall `0x2000001`. It does not use dyld or libSystem.
+- Mach-O 64: static `__TEXT` / `__DATA` / `__LINKEDIT` segments,
+  `LC_UNIXTHREAD` entry at file offset `0x300`, a `0x4000`-byte zero-filled
+  stack in `__DATA`, and the macOS `exit` syscall `0x2000001`. It does not use
+  dyld or libSystem.
 
 ## Roadmap
 
-1. Add string literals and a read-only data section.
-2. Add structs, arrays, field and index addressing.
-3. Add global variables and command-line arguments.
-4. Compile `flintc` with `flintc` and validate a fixed-point bootstrap.
-5. Add a native macOS `flintc` once file I/O is ported from Win32 to syscalls.
+1. Raise compiler buffers and backend capacities so `flintc` can parse its own
+   full source.
+2. Add runtime support for `alloc`, file I/O, and `print` in generated PE/ELF.
+3. Compile `flintc` with `flintc` and validate a fixed-point bootstrap.
+4. Add a native macOS `flintc` once file I/O is ported from Win32 to syscalls.
 
 ## Engineering constraints
 

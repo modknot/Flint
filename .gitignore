@@ -1,6 +1,7 @@
 # Build outputs and temporary artifacts
 build/
 *.exe
+!bootstrap/flintc0.exe
 *.obj
 *.o
 *.pdb
@@ -10,7 +11,7 @@ build/
 *.log
 *.unit.fl
 
-# Local toolchain binaries (NASM is installed by the build machine / CI)
+# Local toolchain binaries
 tools/
 
 # Editor and OS files

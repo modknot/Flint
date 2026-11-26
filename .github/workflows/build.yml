@@ -82,8 +82,11 @@ jobs:
 
       - name: Run Mach-O target
         run: |
+          uname -m
           chmod +x flintc-macho
           xattr -d com.apple.quarantine flintc-macho 2>/dev/null || true
+          codesign --force --sign - flintc-macho
+          codesign --verify --verbose flintc-macho
           file flintc-macho
           set +e
           ./flintc-macho

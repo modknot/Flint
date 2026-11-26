@@ -56,9 +56,10 @@ main.fl           flintc 入口
 
 ### Mach-O 64
 
-- `MH_MAGIC_64` + `LC_SEGMENT_64(__TEXT)` + `LC_MAIN`，入口文件偏移 `0x80`。
+- `MH_MAGIC_64` + `__PAGEZERO` + `__TEXT`（含 `__text`）+ `__DATA` + `__LINKEDIT`。
+- 静态可执行：`LC_UNIXTHREAD` 指定入口 `0x100000300` 与栈顶 `0x100006000`，不加载 dyld / libSystem。
 - 入口先 `call main`，返回后跳到代码尾部追加的 `mov edi,eax` → `mov eax,0x2000001` → `syscall`。
-- 文件长度 `0x1000`，代码上限 `0xF80` 字节。
+- 文件长度 `0x2000`，代码区从 `0x300` 开始。
 
 ## 新增语言内建
 
@@ -79,8 +80,8 @@ readfile(path: ^u8, pathlen: i64, buf: ^u8, maxlen: i64) -> i64
 - 函数标签在全部函数生成后统一回填 `call rel32`，因此支持前向调用和自调用。
 - 尚未支持字符串字面量、结构体、数组、全局变量、模块和 `argc/argv`。
 - `sample.fl` 路径固定为 `src/flintc/sample.fl`，尚未接命令行参数。
-- Mach-O 只做结构校验，未在真实 macOS 上运行；PE/ELF 已实际运行验证。
-- 后端只支持单段、固定入口，未实现重定位、符号表、动态链接。
+- Mach-O 已在 `macos-15-intel` 的 GitHub Actions 中实际运行，退出码 `20`；PE/ELF 也已实际运行验证。
+- 后端只支持固定入口，未实现重定位、符号表、动态链接。
 
 ## 下一段
 

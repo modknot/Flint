@@ -18,7 +18,7 @@ The goal is to grow the seed into a self-hosted Flint compiler written in Flint.
 - One compiler source produces three target formats:
   **PE32+**, **ELF64**, and **Mach-O 64** for x86-64.
 - The generated sample (`add`, recursive `fact`, and `main`) returns exit code
-  `20` on Windows PE and Linux ELF.
+  `20` on Windows PE, Linux ELF, and macOS Mach-O.
 - GitHub Actions builds the targets on Windows and runs the generated ELF on
   Linux and the generated Mach-O on macOS (`macos-15-intel`).
 
@@ -91,7 +91,7 @@ build\flintc-pe.exe
 
 `flintc` reads `src/flintc/sample.fl`, writes `build/flintc-pe.exe`,
 `build/flintc-elf`, and `build/flintc-macho`, and prints `6`. The sample exits
-with `20` on both Windows and Linux.
+with `20` on Windows, Linux, and macOS.
 
 ## Tests
 
@@ -134,8 +134,9 @@ Not implemented yet:
 - PE: one `.text` section, entry RVA `0x1000`, IAT at RVA `0x2000`, imports
   `KERNEL32.dll!ExitProcess`, exit stub after the generated code.
 - ELF64: one `PT_LOAD`, entry `0x400078`, Linux `exit` syscall 60.
-- Mach-O 64: `__TEXT` segment plus `LC_MAIN`, entry file offset `0x80`, macOS
-  `exit` syscall `0x2000001`.
+- Mach-O 64: static `__TEXT` / `__DATA` / `__LINKEDIT` segments, `LC_UNIXTHREAD`
+  entry at file offset `0x300`, a `0x4000`-byte zero-filled stack in `__DATA`,
+  and the macOS `exit` syscall `0x2000001`. It does not use dyld or libSystem.
 
 ## Roadmap
 

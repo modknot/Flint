@@ -85,19 +85,10 @@ jobs:
           uname -m
           chmod +x flintc-macho
           xattr -d com.apple.quarantine flintc-macho 2>/dev/null || true
+          file flintc-macho
           set +e
           ./flintc-macho
-          unsigned=$?
-          set -e
-          echo "unsigned exit=$unsigned"
-          codesign --force --sign - flintc-macho
-          codesign --verify --verbose flintc-macho
-          file flintc-macho
-          otool -l flintc-macho | head -90
-          set +e
-          DYLD_PRINT_LIBRARIES=1 ./flintc-macho
           code=$?
           set -e
           echo "Mach-O exit=$code"
-          sudo log show --last 30s --style compact 2>/dev/null | grep -i -E 'AMFI|flintc|code signature|killed' | tail -30 || true
           test "$code" -eq 20

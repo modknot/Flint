@@ -14,7 +14,7 @@ fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
     zero_bytes(b, 0x2000);
 
     put32(b, 0, 0xFEEDFACF); put32(b, 4, 0x01000007); put32(b, 8, 3); put32(b, 12, 2);
-    put32(b, 16, 7); put32(b, 20, 0x1D0); put32(b, 24, 0x85);
+    put32(b, 16, 7); put32(b, 20, 0x1B0); put32(b, 24, 0x85);
 
     // __PAGEZERO: 72-byte segment command at 0x20.
     put32(b, 32, 0x19); put32(b, 36, 72);

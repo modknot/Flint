@@ -1,1 +1,2 @@
-*.Assembly linguist-language=Java
+*.asm linguist-language=C++
+

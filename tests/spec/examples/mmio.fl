@@ -1,0 +1,8 @@
+// SPEC-EXAMPLE mmio
+// 期望: 1（整数直接 as 指针，读写硬件地址）
+fn main() -> i64 {
+    let reg: ^u32 = 0xFFFF_FF00_0000_0000 as ^u32;
+    reg.* = 1;
+    print(reg.*);
+    return 0;
+}

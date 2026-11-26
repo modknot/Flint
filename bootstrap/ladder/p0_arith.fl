@@ -1,0 +1,7 @@
+// EXPECT stdout:14
+// EXPECT exit:14
+fn main() -> i64 {
+    let a: i64 = 2 + 3 * 4;
+    print(a);
+    return a;
+}

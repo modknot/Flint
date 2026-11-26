@@ -1,0 +1,7 @@
+// SPEC-EXAMPLE for_iterator
+// 期望: 1 / 2 / 3（数组按值迭代）
+fn main() -> i64 {
+    let xs: [i64; 3] = [1, 2, 3];
+    for x in xs { print(x); }
+    return 0;
+}

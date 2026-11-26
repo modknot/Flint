@@ -1,0 +1,14 @@
+// SPEC-EXAMPLE outcome
+// 期望: 5（Outcome 为核心枚举，无异常、无栈展开）
+fn div(a: i64, b: i64) -> Outcome[i64, i64] {
+    if b == 0 { return Outcome::err(1); }
+    return Outcome::ok(a / b);
+}
+
+fn main() -> i64 {
+    match div(10, 2) {
+        Outcome::ok(v) => print(v),
+        Outcome::err(e) => print(-e),
+    }
+    return 0;
+}

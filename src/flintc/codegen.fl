@@ -1,0 +1,223 @@
+// ------------------------------ 机器码 ----------------------------------
+fn eb(c: ^Ctx, v: i64) { c.code[c.clen.*] = v as u8; c.clen.* += 1; }
+
+fn e32(c: ^Ctx, v: i64) {
+    let u: i64 = v;
+    if u < 0 { u = u + 4294967296; }
+    eb(c, u % 256); eb(c, (u / 256) % 256); eb(c, (u / 65536) % 256); eb(c, (u / 16777216) % 256);
+}
+
+fn emit_jmp(c: ^Ctx) -> i64 {
+    eb(c, 0xE9);
+    let p: i64 = c.clen.*;
+    e32(c, 0);
+    return p;
+}
+
+fn emit_je(c: ^Ctx) -> i64 {
+    eb(c, 0x0F); eb(c, 0x84);
+    let p: i64 = c.clen.*;
+    e32(c, 0);
+    return p;
+}
+
+fn patch(c: ^Ctx, disp: i64, target: i64) {
+    let rel: i64 = target - (disp + 4);
+    put32(c.code, disp, rel);
+}
+
+fn load_local(c: ^Ctx, off: i64) {
+    eb(c, 0x48); eb(c, 0x8B); eb(c, 0x85); e32(c, off);
+}
+
+fn store_local(c: ^Ctx, off: i64) {
+    eb(c, 0x48); eb(c, 0x89); eb(c, 0x85); e32(c, off);
+}
+
+fn arg_count(a: ^Node) -> i64 {
+    let n: ^Node = a;
+    let k: i64 = 0;
+    while n != 0 { k += 1; n = n.next; }
+    return k;
+}
+
+fn gen_args(c: ^Ctx, a: ^Node) {
+    if a == 0 { return; }
+    if a.next != 0 { gen_args(c, a.next); }
+    gen_expr(c, a);
+    eb(c, 0x50);
+}
+
+fn gen_expr(c: ^Ctx, n: ^Node) {
+    if n == 0 { eb(c, 0x31); eb(c, 0xC0); return; }
+    let k: i64 = n.kind;
+    if k == 12 {
+        eb(c, 0xB8); e32(c, n.val);
+        return;
+    }
+    if k == 13 {
+        let off: i64 = local_find(c, n.val);
+        if off == 0 { eb(c, 0x31); eb(c, 0xC0); }
+        else { load_local(c, off); }
+        return;
+    }
+    if k == 14 {
+        gen_args(c, n.left);
+        eb(c, 0xE8);
+        let disp_call: i64 = c.clen.*;
+        e32(c, 0);
+        call_add(c, disp_call, n.val);
+        let ac: i64 = arg_count(n.left);
+        if ac > 0 {
+            eb(c, 0x48); eb(c, 0x81); eb(c, 0xC4); e32(c, ac * 8);
+        }
+        return;
+    }
+    if k == 11 {
+        gen_expr(c, n.left);
+        eb(c, 0x48); eb(c, 0xF7); eb(c, 0xD8);
+        return;
+    }
+    if k == 10 {
+        gen_expr(c, n.left);
+        eb(c, 0x50);
+        gen_expr(c, n.right);
+        eb(c, 0x59);
+        let op: i64 = n.val;
+        if op == 17 { eb(c, 0x48); eb(c, 0x01); eb(c, 0xC8); }
+        if op == 18 { eb(c, 0x48); eb(c, 0x29); eb(c, 0xC1); eb(c, 0x48); eb(c, 0x89); eb(c, 0xC8); }
+        if op == 19 { eb(c, 0x48); eb(c, 0x0F); eb(c, 0xAF); eb(c, 0xC1); }
+        if op == 20 { eb(c, 0x49); eb(c, 0x89); eb(c, 0xC0); eb(c, 0x48); eb(c, 0x89); eb(c, 0xC8); eb(c, 0x48); eb(c, 0x99); eb(c, 0x49); eb(c, 0xF7); eb(c, 0xF8); }
+        if op == 21 { eb(c, 0x49); eb(c, 0x89); eb(c, 0xC0); eb(c, 0x48); eb(c, 0x89); eb(c, 0xC8); eb(c, 0x48); eb(c, 0x99); eb(c, 0x49); eb(c, 0xF7); eb(c, 0xF8); eb(c, 0x48); eb(c, 0x89); eb(c, 0xD0); }
+        if op == 23 { eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1); eb(c, 0x0F); eb(c, 0x9C); eb(c, 0xC0); eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        if op == 24 { eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1); eb(c, 0x0F); eb(c, 0x9F); eb(c, 0xC0); eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        if op == 25 { eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1); eb(c, 0x0F); eb(c, 0x9E); eb(c, 0xC0); eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        if op == 26 { eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1); eb(c, 0x0F); eb(c, 0x9D); eb(c, 0xC0); eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        if op == 27 { eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1); eb(c, 0x0F); eb(c, 0x94); eb(c, 0xC0); eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        if op == 28 { eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1); eb(c, 0x0F); eb(c, 0x95); eb(c, 0xC0); eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0); }
+        return;
+    }
+}
+
+fn collect_locals(c: ^Ctx, n: ^Node) {
+    let s: ^Node = n;
+    while s != 0 {
+        if s.kind == 93 { local_add(c, s.val); }
+        collect_locals(c, s.body);
+        collect_locals(c, s.right);
+        s = s.next;
+    }
+}
+
+fn add_params(c: ^Ctx, p: ^Node) {
+    let idx_p: i64 = 0;
+    let q: ^Node = p;
+    while q != 0 {
+        param_add(c, q.val, idx_p);
+        idx_p += 1;
+        q = q.next;
+    }
+}
+
+fn gen_stmt(c: ^Ctx, n: ^Node) {
+    let s: ^Node = n;
+    while s != 0 {
+        let k: i64 = s.kind;
+        if k == 93 {
+            gen_expr(c, s.left);
+            let off_let: i64 = local_find(c, s.val);
+            if off_let != 0 { store_local(c, off_let); }
+        }
+        if k == 94 {
+            gen_expr(c, s.left);
+            let p: i64 = emit_jmp(c);
+            c.rets[c.rn.*] = p;
+            c.rn.* = c.rn.* + 1;
+        }
+        if k == 97 {
+            gen_expr(c, s.left);
+            let off_asn: i64 = local_find(c, s.val);
+            if off_asn != 0 { store_local(c, off_asn); }
+        }
+        if k == 98 { gen_expr(c, s.left); }
+        if k == 95 {
+            gen_expr(c, s.left);
+            eb(c, 0x48); eb(c, 0x85); eb(c, 0xC0);
+            let je_if: i64 = emit_je(c);
+            gen_stmt(c, s.body);
+            if s.right != 0 {
+                let jp_if: i64 = emit_jmp(c);
+                let em_if: i64 = c.clen.*;
+                patch(c, je_if, em_if);
+                gen_stmt(c, s.right);
+                let en_if: i64 = c.clen.*;
+                patch(c, jp_if, en_if);
+            } else {
+                let en_noelse: i64 = c.clen.*;
+                patch(c, je_if, en_noelse);
+            }
+        }
+        if k == 96 {
+            let lp_wh: i64 = c.clen.*;
+            gen_expr(c, s.left);
+            eb(c, 0x48); eb(c, 0x85); eb(c, 0xC0);
+            let je_wh: i64 = emit_je(c);
+            gen_stmt(c, s.body);
+            let jp_wh: i64 = emit_jmp(c);
+            patch(c, jp_wh, lp_wh);
+            let en_wh: i64 = c.clen.*;
+            patch(c, je_wh, en_wh);
+        }
+        s = s.next;
+    }
+}
+
+fn gen_fn(c: ^Ctx, f: ^Node) {
+    c.ln.* = 0;
+    c.rn.* = 0;
+    collect_locals(c, f.body);
+    add_params(c, f.left);
+    eb(c, 0x55);                                  // push rbp
+    eb(c, 0x48); eb(c, 0x89); eb(c, 0xE5);        // mov rbp,rsp
+    eb(c, 0x48); eb(c, 0x81); eb(c, 0xEC); e32(c, 0x400); // sub rsp,0x400
+    gen_stmt(c, f.body);
+    let ep: i64 = c.clen.*;
+    let i: i64 = 0;
+    while i < c.rn.* { patch(c, c.rets[i], ep); i += 1; }
+    eb(c, 0x48); eb(c, 0x89); eb(c, 0xEC);        // mov rsp,rbp
+    eb(c, 0x5D);                                  // pop rbp
+    eb(c, 0xC3);                                  // ret
+}
+
+fn resolve_calls(c: ^Ctx) -> i64 {
+    let i: i64 = 0;
+    let bad: i64 = 0;
+    while i < c.cn.* {
+        let lbl: i64 = func_find(c, c.calls[i].name);
+        if lbl == 0 { bad += 1; }
+        else { patch(c, c.calls[i].disp, lbl); }
+        i += 1;
+    }
+    return bad;
+}
+
+fn gen_program(c: ^Ctx, prog: ^Node) -> i64 {
+    let main_tok: i64 = find_main(c, prog);
+    if main_tok < 0 { return 1; }
+    eb(c, 0xE8);
+    let entry_disp: i64 = c.clen.*;
+    e32(c, 0);
+    call_add(c, entry_disp, main_tok);
+    let entry_jmp: i64 = emit_jmp(c);
+    let f: ^Node = prog;
+    while f != 0 {
+        if f.kind == 91 {
+            func_add(c, f.val, c.clen.*, param_count(f.left));
+            gen_fn(c, f);
+        }
+        f = f.next;
+    }
+    patch(c, entry_jmp, c.clen.*);
+    return resolve_calls(c);
+}
+

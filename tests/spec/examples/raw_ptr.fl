@@ -1,0 +1,9 @@
+// SPEC-EXAMPLE raw_ptr
+// 期望: 8（通过 ^i64 原地自增）
+fn main() -> i64 {
+    let x: i64 = 7;
+    let p: ^i64 = ^x;
+    p.* = p.* + 1;
+    print(p.*);
+    return 0;
+}

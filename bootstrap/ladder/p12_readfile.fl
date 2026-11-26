@@ -1,0 +1,24 @@
+// EXPECT stdout:120
+// EXPECT exit:0
+// 生成程序写入文件后再读回：readlen=5, first=70
+
+fn main() -> i64 {
+    let path: ^u8 = alloc(64, 8);
+    path[0] = 98;   path[1] = 117;  path[2] = 105;  path[3] = 108;
+    path[4] = 100;  path[5] = 92;   path[6] = 112;  path[7] = 49;
+    path[8] = 50;   path[9] = 95;   path[10] = 114; path[11] = 102;
+    path[12] = 46;  path[13] = 116; path[14] = 120; path[15] = 116;
+    path[16] = 0;
+
+    let data: ^u8 = alloc(16, 8);
+    data[0] = 70; data[1] = 76; data[2] = 73; data[3] = 78; data[4] = 84;
+    let w: i64 = writefile(path, 16, data, 5);
+
+    let buf: ^u8 = alloc(64, 8);
+    let r: i64 = readfile(path, 16, buf, 64);
+    print(r * 10 + (buf[0] as i64));
+    free(path);
+    free(data);
+    free(buf);
+    return 0;
+}

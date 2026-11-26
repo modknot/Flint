@@ -1,0 +1,13 @@
+// SPEC-EXAMPLE explicit_free
+// 期望: 3（两次堆分配显式释放）
+fn main() -> i64 {
+    let a: ^i64 = alloc(16, 8) as ^i64;
+    let b: ^i64 = alloc(16, 8) as ^i64;
+    a.* = 1;
+    b.* = 2;
+    let s: i64 = a.* + b.*;
+    free(a as ^byte);
+    free(b as ^byte);
+    print(s);
+    return 0;
+}

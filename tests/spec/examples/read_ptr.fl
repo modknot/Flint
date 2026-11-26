@@ -1,0 +1,9 @@
+// SPEC-EXAMPLE read_ptr
+// 期望: 9（^ro 只读视图，通过参数传递）
+fn peek(p: ^ro i64) -> i64 { return p.*; }
+
+fn main() -> i64 {
+    let x: i64 = 9;
+    print(peek(^x));
+    return 0;
+}

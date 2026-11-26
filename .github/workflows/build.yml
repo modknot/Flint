@@ -1,0 +1,93 @@
+name: build-and-run-targets
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install NASM 2.16.03
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'nasm.zip'
+          Invoke-WebRequest -Uri 'https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip' -OutFile $zip
+          $dest = Join-Path $env:RUNNER_TEMP 'nasm'
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
+          $exe = Get-ChildItem -Path $dest -Recurse -Filter nasm.exe | Select-Object -First 1
+          if (-not $exe) { throw 'nasm.exe not found in archive' }
+          New-Item -ItemType Directory -Force -Path 'tools\nasm-2.16.03' | Out-Null
+          Copy-Item -LiteralPath $exe.FullName -Destination 'tools\nasm-2.16.03\nasm.exe'
+
+      - name: Build seed and flintc
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File build.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          pwsh -NoProfile -File build-flintc.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Run flintc and Windows PE target
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\build\flintc.exe
+          if ($LASTEXITCODE -ne 0) { throw "flintc exited $LASTEXITCODE" }
+          $p = Start-Process -FilePath (Resolve-Path 'build\flintc-pe.exe') -Wait -PassThru
+          if ($p.ExitCode -ne 20) { throw "PE target exited $($p.ExitCode), expected 20" }
+
+      - name: Upload cross-target artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flint-targets
+          path: |
+            build/flintc-pe.exe
+            build/flintc-elf
+            build/flintc-macho
+          if-no-files-found: error
+
+  linux-run:
+    needs: windows-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: flint-targets
+
+      - name: Run ELF64 target
+        run: |
+          chmod +x flintc-elf
+          file flintc-elf
+          set +e
+          ./flintc-elf
+          code=$?
+          set -e
+          echo "ELF exit=$code"
+          test "$code" -eq 20
+
+  macos-run:
+    needs: windows-build
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: flint-targets
+
+      - name: Run Mach-O target
+        run: |
+          chmod +x flintc-macho
+          xattr -d com.apple.quarantine flintc-macho 2>/dev/null || true
+          file flintc-macho
+          set +e
+          ./flintc-macho
+          code=$?
+          set -e
+          echo "Mach-O exit=$code"
+          test "$code" -eq 20

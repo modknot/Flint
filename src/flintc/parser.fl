@@ -1,0 +1,353 @@
+fn new_node(kind: i64, val: i64) -> ^Node {
+    let n: ^Node = alloc(64, 8);
+    n.kind = kind; n.val = val; n.start = 0; n.len = 0;
+    n.left = 0; n.right = 0; n.body = 0; n.next = 0;
+    return n;
+}
+
+fn peek(c: ^Ctx) -> i64 { return c.toks[c.pos.*].kind; }
+
+fn advance(c: ^Ctx) { c.pos.* += 1; }
+
+fn expect(c: ^Ctx, k: i64) {
+    if peek(c) == k { advance(c); } else { advance(c); }
+}
+
+fn local_put(c: ^Ctx, tok: i64, off: i64) {
+    let i: i64 = c.ln.*;
+    c.locals[i].start = c.toks[tok].start;
+    c.locals[i].len = c.toks[tok].len;
+    c.locals[i].off = off;
+    c.ln.* = i + 1;
+}
+
+fn local_add(c: ^Ctx, tok: i64) {
+    local_put(c, tok, 0 - (c.ln.* + 1) * 8);
+}
+
+fn param_add(c: ^Ctx, tok: i64, idx: i64) {
+    local_put(c, tok, 16 + idx * 8);
+}
+
+fn same_name(c: ^Ctx, a: i64, b: i64) -> i64 {
+    if c.toks[a].len != c.toks[b].len { return 0; }
+    let j: i64 = 0;
+    while j < c.toks[a].len {
+        if c.src[c.toks[a].start + j] as i64 != c.src[c.toks[b].start + j] as i64 { return 0; }
+        j += 1;
+    }
+    return 1;
+}
+
+fn is_main_name(c: ^Ctx, tok: i64) -> i64 {
+    if c.toks[tok].len != 4 { return 0; }
+    let s: i64 = c.toks[tok].start;
+    if c.src[s] as i64 == 109 { if c.src[s + 1] as i64 == 97 { if c.src[s + 2] as i64 == 105 { if c.src[s + 3] as i64 == 110 { return 1; } } } }
+    return 0;
+}
+
+fn find_main(c: ^Ctx, prog: ^Node) -> i64 {
+    let f: ^Node = prog;
+    while f != 0 {
+        if f.kind == 91 { if is_main_name(c, f.val) == 1 { return f.val; } }
+        f = f.next;
+    }
+    return -1;
+}
+
+fn func_add(c: ^Ctx, tok: i64, label: i64, arity: i64) {
+    let i: i64 = c.fc.*;
+    c.funcs[i].start = c.toks[tok].start;
+    c.funcs[i].len = c.toks[tok].len;
+    c.funcs[i].label = label;
+    c.funcs[i].arity = arity;
+    c.fc.* = i + 1;
+}
+
+fn func_find(c: ^Ctx, tok: i64) -> i64 {
+    let i: i64 = 0;
+    while i < c.fc.* {
+        if c.funcs[i].len == c.toks[tok].len {
+            let j: i64 = 0;
+            let ok: i64 = 1;
+            while j < c.funcs[i].len {
+                if c.src[c.funcs[i].start + j] as i64 != c.src[c.toks[tok].start + j] as i64 { ok = 0; }
+                j += 1;
+            }
+            if ok == 1 { return c.funcs[i].label; }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+fn call_add(c: ^Ctx, disp: i64, name: i64) {
+    let i: i64 = c.cn.*;
+    c.calls[i].disp = disp;
+    c.calls[i].name = name;
+    c.cn.* = i + 1;
+}
+
+fn param_count(p: ^Node) -> i64 {
+    let n: ^Node = p;
+    let k: i64 = 0;
+    while n != 0 { k += 1; n = n.next; }
+    return k;
+}
+
+fn local_find(c: ^Ctx, tok: i64) -> i64 {
+    let i: i64 = 0;
+    while i < c.ln.* {
+        if c.locals[i].len == c.toks[tok].len {
+            let j: i64 = 0;
+            let ok: i64 = 1;
+            while j < c.locals[i].len {
+                if c.src[c.locals[i].start + j] as i64 != c.src[c.toks[tok].start + j] as i64 { ok = 0; }
+                j += 1;
+            }
+            if ok == 1 { return c.locals[i].off; }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+fn parse_primary(c: ^Ctx) -> ^Node {
+    if peek(c) == 2 {
+        let idx_i: i64 = c.pos.*;
+        let node_i: ^Node = new_node(12, c.toks[idx_i].val);
+        advance(c);
+        return node_i;
+    }
+    if peek(c) == 1 {
+        let idx_fn: i64 = c.pos.*;
+        if c.toks[idx_fn + 1].kind == 9 {
+            advance(c);
+            advance(c);
+            let args: ^Node = 0;
+            let tail_args: ^Node = 0;
+            while peek(c) != 10 {
+                if peek(c) == 0 { advance(c); }
+                else {
+                    let a: ^Node = parse_cmp(c);
+                    if args == 0 { args = a; tail_args = a; }
+                    else { tail_args.next = a; tail_args = a; }
+                    if peek(c) == 13 { advance(c); }
+                }
+            }
+            if peek(c) == 10 { advance(c); }
+            let node_call: ^Node = new_node(14, idx_fn);
+            node_call.left = args;
+            return node_call;
+        }
+        let idx_id: i64 = c.pos.*;
+        let node_id: ^Node = new_node(13, idx_id);
+        advance(c);
+        return node_id;
+    }
+    if peek(c) == 9 {
+        advance(c);
+        let expr_p: ^Node = parse_expr(c);
+        expect(c, 10);
+        return expr_p;
+    }
+    if peek(c) == 18 {
+        advance(c);
+        let node_neg: ^Node = new_node(11, 0);
+        node_neg.left = parse_primary(c);
+        return node_neg;
+    }
+    let node_zero: ^Node = new_node(12, 0);
+    advance(c);
+    return node_zero;
+}
+
+fn parse_term(c: ^Ctx) -> ^Node {
+    let left_t: ^Node = parse_primary(c);
+    while peek(c) == 19 {
+        advance(c);
+        let right_mul: ^Node = parse_primary(c);
+        let node_mul: ^Node = new_node(10, 19);
+        node_mul.left = left_t; node_mul.right = right_mul;
+        left_t = node_mul;
+    }
+    while peek(c) == 20 {
+        advance(c);
+        let right_div: ^Node = parse_primary(c);
+        let node_div: ^Node = new_node(10, 20);
+        node_div.left = left_t; node_div.right = right_div;
+        left_t = node_div;
+    }
+    while peek(c) == 21 {
+        advance(c);
+        let right_mod: ^Node = parse_primary(c);
+        let node_mod: ^Node = new_node(10, 21);
+        node_mod.left = left_t; node_mod.right = right_mod;
+        left_t = node_mod;
+    }
+    return left_t;
+}
+
+fn parse_expr(c: ^Ctx) -> ^Node {
+    let left_e: ^Node = parse_term(c);
+    while peek(c) == 17 {
+        advance(c);
+        let right_add: ^Node = parse_term(c);
+        let node_add: ^Node = new_node(10, 17);
+        node_add.left = left_e; node_add.right = right_add;
+        left_e = node_add;
+    }
+    while peek(c) == 18 {
+        advance(c);
+        let right_sub: ^Node = parse_term(c);
+        let node_sub: ^Node = new_node(10, 18);
+        node_sub.left = left_e; node_sub.right = right_sub;
+        left_e = node_sub;
+    }
+    return left_e;
+}
+
+fn cmp_node(c: ^Ctx, left: ^Node, op: i64) -> ^Node {
+    advance(c);
+    let right_cmp: ^Node = parse_expr(c);
+    let node_cmp: ^Node = new_node(10, op);
+    node_cmp.left = left;
+    node_cmp.right = right_cmp;
+    return node_cmp;
+}
+
+fn parse_cmp(c: ^Ctx) -> ^Node {
+    let left_c: ^Node = parse_expr(c);
+    let kc: i64 = peek(c);
+    if kc == 23 { left_c = cmp_node(c, left_c, 23); }
+    if kc == 24 { left_c = cmp_node(c, left_c, 24); }
+    if kc == 25 { left_c = cmp_node(c, left_c, 25); }
+    if kc == 26 { left_c = cmp_node(c, left_c, 26); }
+    if kc == 27 { left_c = cmp_node(c, left_c, 27); }
+    if kc == 28 { left_c = cmp_node(c, left_c, 28); }
+    return left_c;
+}
+
+fn parse_stmt(c: ^Ctx) -> ^Node {
+    let n: ^Node = 0;
+    if peek(c) == 4 {
+        advance(c);
+        let name_let: i64 = c.pos.*;
+        advance(c);
+        if peek(c) == 14 { advance(c); advance(c); }
+        expect(c, 22);
+        let expr_let: ^Node = parse_cmp(c);
+        n = new_node(93, name_let);
+        n.left = expr_let;
+    } else {
+        if peek(c) == 5 {
+            advance(c);
+            n = new_node(94, 0);
+            if peek(c) != 15 { if peek(c) != 12 { n.left = parse_cmp(c); } }
+        } else {
+            if peek(c) == 6 {
+                advance(c);
+                let cond_if: ^Node = parse_cmp(c);
+                let body_if: ^Node = parse_block(c);
+                n = new_node(95, 0); n.left = cond_if; n.body = body_if;
+                if peek(c) == 7 { advance(c); n.right = parse_block(c); }
+            } else {
+                if peek(c) == 8 {
+                    advance(c);
+                    let cond_wh: ^Node = parse_cmp(c);
+                    let body_wh: ^Node = parse_block(c);
+                    n = new_node(96, 0); n.left = cond_wh; n.body = body_wh;
+                } else {
+                    if peek(c) == 11 {
+                        n = parse_block(c);
+                    } else {
+                        if peek(c) == 15 { advance(c); }
+                        else {
+                            if peek(c) == 1 {
+                                if c.toks[c.pos.* + 1].kind == 22 {
+                                    let name_asn: i64 = c.pos.*;
+                                    advance(c); advance(c);
+                                    n = new_node(97, name_asn);
+                                    n.left = parse_cmp(c);
+                                }
+                            }
+                            if n == 0 { if peek(c) != 15 { if peek(c) != 12 { if peek(c) != 0 { n = new_node(98, 0); n.left = parse_cmp(c); } } } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if peek(c) == 15 { advance(c); }
+    return n;
+}
+
+fn parse_block(c: ^Ctx) -> ^Node {
+    expect(c, 11);
+    let head: ^Node = 0;
+    let tail: ^Node = 0;
+    let go: i64 = 1;
+    while go == 1 {
+        if peek(c) == 0 { go = 0; }
+        else {
+            if peek(c) == 12 { go = 0; }
+            else {
+                let s: ^Node = parse_stmt(c);
+                if s != 0 {
+                    if head == 0 { head = s; tail = s; }
+                    else { tail.next = s; tail = s; }
+                }
+            }
+        }
+    }
+    expect(c, 12);
+    return head;
+}
+
+fn parse_fn(c: ^Ctx) -> ^Node {
+    expect(c, 3);
+    let name: i64 = c.pos.*;
+    advance(c);
+    expect(c, 9);
+    let phead: ^Node = 0;
+    let ptail: ^Node = 0;
+    while peek(c) != 10 {
+        if peek(c) == 0 { advance(c); }
+        else {
+            if peek(c) == 1 {
+                let ptok: i64 = c.pos.*;
+                advance(c);
+                if peek(c) == 14 {
+                    advance(c);
+                    if peek(c) != 13 { if peek(c) != 10 { advance(c); } }
+                }
+                let pnode: ^Node = new_node(92, ptok);
+                if phead == 0 { phead = pnode; ptail = pnode; }
+                else { ptail.next = pnode; ptail = pnode; }
+                if peek(c) == 13 { advance(c); }
+            } else { advance(c); }
+        }
+    }
+    if peek(c) == 10 { advance(c); }
+    if peek(c) == 16 {
+        advance(c);
+        while peek(c) != 11 { if peek(c) == 0 { advance(c); } else { advance(c); } }
+    }
+    let body: ^Node = parse_block(c);
+    let n: ^Node = new_node(91, name);
+    n.left = phead;
+    n.body = body;
+    return n;
+}
+
+fn parse_program(c: ^Ctx) -> ^Node {
+    let head: ^Node = 0;
+    let tail: ^Node = 0;
+    while peek(c) != 0 {
+        let f: ^Node = parse_fn(c);
+        if head == 0 { head = f; tail = f; }
+        else { tail.next = f; tail = f; }
+    }
+    return head;
+}
+

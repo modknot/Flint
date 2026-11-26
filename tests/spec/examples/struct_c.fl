@@ -1,0 +1,12 @@
+// SPEC-EXAMPLE struct_c
+// 期望: 8（struct c 按 C ABI 布局：u32 + u16 + 2 字节填充）
+struct c Header {
+    magic: u32,
+    len: u16,
+}
+
+fn main() -> i64 {
+    let h: Header = Header{ magic: 0x464C, len: 3 };
+    print(size_of(Header));
+    return 0;
+}

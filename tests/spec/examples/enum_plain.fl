@@ -1,0 +1,17 @@
+// SPEC-EXAMPLE enum_plain
+// 期望: 1
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+fn main() -> i64 {
+    let c: Color = Color::Green;
+    match c {
+        Color::Red => print(0),
+        Color::Green => print(1),
+        Color::Blue => print(2),
+    }
+    return 0;
+}

@@ -1,0 +1,16 @@
+// SPEC-EXAMPLE match_guard
+// 期望: 4 / 3 / 0
+fn grade(n: i64) -> i64 {
+    return match n {
+        x if x >= 90 => 4,
+        x if x >= 60 => 3,
+        _ => 0,
+    };
+}
+
+fn main() -> i64 {
+    print(grade(95));
+    print(grade(70));
+    print(grade(10));
+    return 0;
+}

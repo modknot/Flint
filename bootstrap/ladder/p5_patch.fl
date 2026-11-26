@@ -1,0 +1,12 @@
+// EXPECT stdout:4660
+// EXPECT exit:0
+fn main() -> i64 {
+    let buf: ^byte = alloc(16, 1);
+    buf[0] = 0xE8;
+    let at: ^u32 = ((buf as ^byte) + 1) as ^u32;
+    at.* = 0;
+    at.* = 0x1234;
+    print(at.* as i64);
+    free(buf);
+    return 0;
+}

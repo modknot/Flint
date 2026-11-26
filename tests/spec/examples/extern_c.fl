@@ -1,0 +1,11 @@
+// SPEC-EXAMPLE extern_c
+// 期望: 5（调用 C 的 strlen；str 的 ptr 字段是 ^ro byte）
+extern "C" {
+    fn strlen(s: ^ro byte) -> u64;
+}
+
+fn main() -> i64 {
+    let s: str = "hello";
+    print(strlen(s.ptr));
+    return 0;
+}

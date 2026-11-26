@@ -1,0 +1,46 @@
+// EXPECT stdout:255
+// EXPECT exit:0
+// 最小词法器骨架：扫描字节数组，切出标识符，写 Token 数组。
+struct Token {
+    kind: u8,
+    start: i64,
+    len: i64,
+}
+
+fn is_alpha(c: u8) -> i64 {
+    if c >= 97 {
+        if c <= 122 { return 1; }
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    let src: [u8; 11] = [104, 101, 108, 108, 111, 32, 102, 108, 105, 110, 116];
+    let toks: [Token; 4] = [
+        Token{ kind: 0, start: 0, len: 0 },
+        Token{ kind: 0, start: 0, len: 0 },
+        Token{ kind: 0, start: 0, len: 0 },
+        Token{ kind: 0, start: 0, len: 0 },
+    ];
+    let n: i64 = 0;
+    let i: i64 = 0;
+    let inword: i64 = 0;
+    while i < 11 {
+        let c: u8 = src[i];
+        if is_alpha(c) == 1 {
+            if inword == 0 {
+                toks[n].kind = 1;
+                toks[n].start = i;
+                toks[n].len = 0;
+                n += 1;
+                inword = 1;
+            }
+            toks[n - 1].len += 1;
+        } else {
+            inword = 0;
+        }
+        i += 1;
+    }
+    print(n * 100 + toks[0].len * 10 + toks[1].len);
+    return 0;
+}

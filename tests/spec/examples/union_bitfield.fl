@@ -1,0 +1,20 @@
+// SPEC-EXAMPLE union_bitfield
+// 期望: 42 / true（联合体读活跃字段；位域按布尔访问）
+union Value {
+    i: i64,
+    f: f64,
+}
+
+bits Flags: u8 {
+    a: 1,
+    b: 2,
+    c: 4,
+}
+
+fn main() -> i64 {
+    let v: Value = Value{ i: 42 };
+    print(v.i);
+    let f: Flags = Flags::from_bits(0b101);
+    print(f.a);
+    return 0;
+}

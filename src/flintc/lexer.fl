@@ -1,0 +1,131 @@
+// ------------------------------ 词法器 ----------------------------------
+fn is_alpha(c: i64) -> i64 {
+    if c >= 97 { if c <= 122 { return 1; } }
+    if c >= 65 { if c <= 90 { return 1; } }
+    if c == 95 { return 1; }
+    return 0;
+}
+
+fn is_digit(c: i64) -> i64 {
+    if c >= 48 { if c <= 57 { return 1; } }
+    return 0;
+}
+
+fn is_ident(c: i64) -> i64 {
+    if is_alpha(c) == 1 { return 1; }
+    if is_digit(c) == 1 { return 1; }
+    return 0;
+}
+
+fn keyword(src: ^u8, o: i64, n: i64) -> i64 {
+    if n == 2 {
+        if src[o] as i64 == 102 { if src[o + 1] as i64 == 110 { return 3; } }
+        if src[o] as i64 == 105 { if src[o + 1] as i64 == 102 { return 6; } }
+    }
+    if n == 3 {
+        if src[o] as i64 == 108 { if src[o + 1] as i64 == 101 { if src[o + 2] as i64 == 116 { return 4; } } }
+    }
+    if n == 4 {
+        if src[o] as i64 == 101 { if src[o + 1] as i64 == 108 { if src[o + 2] as i64 == 115 { if src[o + 3] as i64 == 101 { return 7; } } } }
+    }
+    if n == 5 {
+        if src[o] as i64 == 119 { if src[o + 1] as i64 == 104 { if src[o + 2] as i64 == 105 { if src[o + 3] as i64 == 108 { if src[o + 4] as i64 == 101 { return 8; } } } } }
+    }
+    if n == 6 {
+        if src[o] as i64 == 114 { if src[o + 1] as i64 == 101 { if src[o + 2] as i64 == 116 { if src[o + 3] as i64 == 117 { if src[o + 4] as i64 == 114 { if src[o + 5] as i64 == 110 { return 5; } } } } } }
+    }
+    return 0;
+}
+
+fn lex(src: ^u8, n: i64, toks: ^Token) -> i64 {
+    let i: i64 = 0;
+    let c: i64 = 0;
+    while i < n {
+        let b: i64 = src[i] as i64;
+        let handled: i64 = 0;
+
+        if b == 32 { i += 1; handled = 1; }
+        if b == 10 { i += 1; handled = 1; }
+        if b == 13 { i += 1; handled = 1; }
+        if b == 9 { i += 1; handled = 1; }
+
+        if handled == 0 {
+            if is_alpha(b) == 1 {
+                let st_id: i64 = i;
+                let go_id: i64 = 1;
+                while go_id == 1 {
+                    if i < n {
+                        if is_ident(src[i] as i64) == 1 { i += 1; } else { go_id = 0; }
+                    } else { go_id = 0; }
+                }
+                let wl: i64 = i - st_id;
+                let kw: i64 = keyword(src, st_id, wl);
+                toks[c].start = st_id; toks[c].len = wl; toks[c].val = 0;
+                if kw == 0 { toks[c].kind = 1; } else { toks[c].kind = kw; }
+                c += 1;
+                handled = 1;
+            }
+        }
+
+        if handled == 0 {
+            if is_digit(b) == 1 {
+                let st_num: i64 = i;
+                let v: i64 = 0;
+                let go_num: i64 = 1;
+                while go_num == 1 {
+                    if i < n {
+                        if is_digit(src[i] as i64) == 1 { v = v * 10 + (src[i] as i64 - 48); i += 1; } else { go_num = 0; }
+                    } else { go_num = 0; }
+                }
+                toks[c].kind = 2; toks[c].start = st_num; toks[c].len = i - st_num; toks[c].val = v;
+                c += 1;
+                handled = 1;
+            }
+        }
+
+        if handled == 0 {
+            let st_p: i64 = i;
+            let k: i64 = 0;
+            if b == 40 { k = 9; i += 1; }
+            if b == 41 { k = 10; i += 1; }
+            if b == 123 { k = 11; i += 1; }
+            if b == 125 { k = 12; i += 1; }
+            if b == 44 { k = 13; i += 1; }
+            if b == 58 { k = 14; i += 1; }
+            if b == 59 { k = 15; i += 1; }
+            if b == 43 { k = 17; i += 1; }
+            if b == 42 { k = 19; i += 1; }
+            if b == 47 { k = 20; i += 1; }
+            if b == 37 { k = 21; i += 1; }
+            if b == 61 {
+                if i + 1 < n { if src[i + 1] as i64 == 61 { k = 27; i += 2; } else { k = 22; i += 1; } }
+                else { k = 22; i += 1; }
+            }
+            if b == 60 {
+                if i + 1 < n { if src[i + 1] as i64 == 61 { k = 25; i += 2; } else { k = 23; i += 1; } }
+                else { k = 23; i += 1; }
+            }
+            if b == 62 {
+                if i + 1 < n { if src[i + 1] as i64 == 61 { k = 26; i += 2; } else { k = 24; i += 1; } }
+                else { k = 24; i += 1; }
+            }
+            if b == 45 {
+                if i + 1 < n { if src[i + 1] as i64 == 62 { k = 16; i += 2; } else { k = 18; i += 1; } }
+                else { k = 18; i += 1; }
+            }
+            if b == 33 {
+                if i + 1 < n { if src[i + 1] as i64 == 61 { k = 28; i += 2; } }
+            }
+            if k != 0 {
+                toks[c].kind = k; toks[c].start = st_p; toks[c].len = i - st_p; toks[c].val = 0;
+                c += 1;
+                handled = 1;
+            }
+        }
+
+        if handled == 0 { i += 1; }
+    }
+    toks[c].kind = 0; toks[c].start = i; toks[c].len = 0; toks[c].val = 0;
+    return c;
+}
+

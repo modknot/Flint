@@ -1,0 +1,25 @@
+# Build outputs and temporary artifacts
+build/
+*.exe
+*.obj
+*.o
+*.pdb
+*.sec
+*.dis
+*.tmp
+*.log
+*.unit.fl
+
+# Local toolchain binaries (NASM is installed by the build machine / CI)
+tools/
+
+# Editor and OS files
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local archives
+*.zip
+*.7z

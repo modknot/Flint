@@ -1,0 +1,18 @@
+// SPEC-EXAMPLE try_propagate
+// 期望: 42（try 在 err 时立即 return err(e)）
+fn fetch() -> Outcome[i64, i64] {
+    return Outcome::ok(41);
+}
+
+fn compute() -> Outcome[i64, i64] {
+    let v: i64 = try fetch();
+    return Outcome::ok(v + 1);
+}
+
+fn main() -> i64 {
+    match compute() {
+        Outcome::ok(v) => print(v),
+        Outcome::err(e) => print(-e),
+    }
+    return 0;
+}

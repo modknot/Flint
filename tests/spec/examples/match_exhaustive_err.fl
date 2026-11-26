@@ -1,0 +1,12 @@
+// SPEC-EXAMPLE match_exhaustive_err
+// 期望: 编译错误 E4022（缺少 Color::Blue），诊断列出缺失模式
+enum Color { Red, Green, Blue }
+
+fn f(c: Color) -> i64 {
+    match c {
+        Color::Red => 1,
+        Color::Green => 2,
+    }
+}
+
+fn main() -> i64 { return f(Color::Red); }

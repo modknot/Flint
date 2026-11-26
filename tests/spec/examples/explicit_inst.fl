@@ -1,0 +1,11 @@
+// SPEC-EXAMPLE explicit_inst
+// 期望: 7 / x（同一泛型按不同类型两次单态化）
+fn id[T](x: T) -> T { return x; }
+
+fn main() -> i64 {
+    let a: i64 = id::[i64](7);
+    let c: char = id::[char]('x');
+    print(a);
+    print(c);
+    return 0;
+}

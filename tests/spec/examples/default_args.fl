@@ -1,0 +1,9 @@
+// SPEC-EXAMPLE default_args
+// 期望: 15 / 6
+fn add(a: i64, b: i64 = 10) -> i64 { return a + b; }
+
+fn main() -> i64 {
+    print(add(5));
+    print(add(5, 1));
+    return 0;
+}

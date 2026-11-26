@@ -1,0 +1,109 @@
+// Flint 编译器骨架 v0.4
+// 由汇编种子编译；读取 .fl 源码，完成词法、函数参数/调用/局部变量/控制流解析，
+// 生成 x86-64 机器码，并写出 PE32+ / ELF64 / Mach-O 三个目标文件。
+
+struct Token {
+    kind: i64,
+    start: i64,
+    len: i64,
+    val: i64,
+}
+
+struct Node {
+    kind: i64,
+    val: i64,
+    start: i64,
+    len: i64,
+    left: ^Node,
+    right: ^Node,
+    body: ^Node,
+    next: ^Node,
+}
+
+struct Local {
+    start: i64,
+    len: i64,
+    off: i64,
+}
+
+struct Func {
+    start: i64,
+    len: i64,
+    label: i64,
+    arity: i64,
+}
+
+struct Call {
+    disp: i64,
+    name: i64,
+}
+
+struct Ctx {
+    toks: ^Token,
+    src: ^u8,
+    locals: ^Local,
+    ln: ^i64,
+    pos: ^i64,
+    code: ^u8,
+    clen: ^i64,
+    rets: ^i64,
+    rn: ^i64,
+    funcs: ^Func,
+    fc: ^i64,
+    calls: ^Call,
+    cn: ^i64,
+}
+
+// ------------------------------ 字节工具 --------------------------------
+fn put8(b: ^u8, o: i64, v: i64) { b[o] = v as u8; }
+
+fn put16(b: ^u8, o: i64, v: i64) {
+    b[o] = (v % 256) as u8;
+    b[o + 1] = ((v / 256) % 256) as u8;
+}
+
+fn put32(b: ^u8, o: i64, v: i64) {
+    let u: i64 = v;
+    if u < 0 { u = u + 4294967296; }
+    b[o] = (u % 256) as u8;
+    b[o + 1] = ((u / 256) % 256) as u8;
+    b[o + 2] = ((u / 65536) % 256) as u8;
+    b[o + 3] = ((u / 16777216) % 256) as u8;
+}
+
+fn put64(b: ^u8, o: i64, v: i64) {
+    let n: i64 = 0;
+    while n < 8 {
+        b[o + n] = (v % 256) as u8;
+        v = v / 256;
+        n += 1;
+    }
+}
+
+fn read32(b: ^u8, o: i64) -> i64 {
+    return (b[o] as i64) + (b[o + 1] as i64) * 256 + (b[o + 2] as i64) * 65536 + (b[o + 3] as i64) * 16777216;
+}
+
+fn zero_bytes(b: ^u8, n: i64) {
+    let i: i64 = 0;
+    while i < n { b[i] = 0; i += 1; }
+}
+
+fn copy_text(b: ^u8, o: i64, text: ^u8, n: i64) {
+    let i: i64 = 0;
+    while i < n { b[o + i] = text[i]; i += 1; }
+}
+
+fn save_file(path: ^u8, plen: i64, data: ^u8, len: i64) -> i64 {
+    return writefile(path, plen, data, len);
+}
+
+
+// ------------------------------ 路径工具 --------------------------------
+fn path_common(p: ^u8) {
+    p[0] = 98;   p[1] = 117;  p[2] = 105;  p[3] = 108;
+    p[4] = 100;  p[5] = 47;   p[6] = 102;  p[7] = 108;
+    p[8] = 105;  p[9] = 110;  p[10] = 116; p[11] = 99;
+    p[12] = 45;
+}
+

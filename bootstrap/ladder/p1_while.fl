@@ -1,0 +1,12 @@
+// EXPECT stdout:45
+// EXPECT exit:0
+fn main() -> i64 {
+    let i: i64 = 0;
+    let s: i64 = 0;
+    while i < 10 {
+        s += i;
+        i += 1;
+    }
+    print(s);
+    return 0;
+}

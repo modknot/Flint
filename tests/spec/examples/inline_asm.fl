@@ -1,0 +1,9 @@
+// SPEC-EXAMPLE inline_asm
+// 期望: 5（模板 {0}/{1} 绑定操作数；clobber 必须显式）
+fn main() -> i64 {
+    let x: i64 = 5;
+    let y: i64 = 0;
+    asm volatile("mov {0}, {1}" : out(rax) = y : in(x) : clobber("cc"));
+    print(y);
+    return 0;
+}

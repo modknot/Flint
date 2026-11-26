@@ -1,0 +1,6 @@
+// EXPECT stdout:6
+// EXPECT exit:0
+// BUILD ../src/flintc/flintc.fl
+// 种子编译整个 flintc 骨架；flintc 读取 src/flintc/sample.fl，
+// 词法/语法/机器码生成后写出 PE、ELF64、Mach-O 三个最小可执行文件。
+// p10 只校验三个目标写出与魔数，共 6 项。

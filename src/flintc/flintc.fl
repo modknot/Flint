@@ -1,0 +1,11 @@
+// Flint compiler source root v0.4
+// One compiler, split into modules. The build scripts expand the include
+// directives below, in order, into build/flintc.unit.fl before invoking the seed.
+// include: common.fl
+// include: lexer.fl
+// include: parser.fl
+// include: codegen.fl
+// include: backend_pe.fl
+// include: backend_elf.fl
+// include: backend_macho.fl
+// include: main.fl

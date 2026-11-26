@@ -1,0 +1,18 @@
+// ------------------------------ Mach-O 64 后端 ---------------------------
+fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
+    zero_bytes(b, 0x1000);
+    put32(b, 0, 0xFEEDFACF); put32(b, 4, 0x01000007); put32(b, 8, 3); put32(b, 12, 2);
+    put32(b, 16, 2); put32(b, 20, 96); put32(b, 24, 0x00200085);
+    put32(b, 32, 0x19); put32(b, 36, 72);
+    put8(b, 40, 95); put8(b, 41, 95); put8(b, 42, 84); put8(b, 43, 69); put8(b, 44, 88); put8(b, 45, 84);
+    put64(b, 56, 0x100000000); put64(b, 64, 0x1000); put64(b, 72, 0); put64(b, 80, 0x1000);
+    put32(b, 88, 7); put32(b, 92, 5); put32(b, 96, 0); put32(b, 100, 0);
+    put32(b, 104, 0x80000028); put32(b, 108, 24); put64(b, 112, 0x80); put64(b, 120, 0);
+    copy_text(b, 0x80, code, clen);
+    let off: i64 = 0x80 + clen;
+    put8(b, off, 0x89); put8(b, off + 1, 0xC7);
+    put8(b, off + 2, 0xB8); put32(b, off + 3, 0x2000001);
+    put8(b, off + 7, 0x0F); put8(b, off + 8, 0x05);
+    return 0x1000;
+}
+

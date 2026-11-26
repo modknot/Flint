@@ -1,0 +1,17 @@
+// ------------------------------ ELF64 后端 -------------------------------
+fn backend_elf(b: ^u8, code: ^u8, clen: i64) -> i64 {
+    zero_bytes(b, 0x1000);
+    put8(b, 0, 0x7F); put8(b, 1, 69); put8(b, 2, 76); put8(b, 3, 70);
+    put8(b, 4, 2); put8(b, 5, 1); put8(b, 6, 1);
+    put16(b, 16, 2); put16(b, 18, 62); put32(b, 20, 1); put64(b, 24, 0x400078);
+    put64(b, 32, 64); put16(b, 52, 64); put16(b, 54, 56); put16(b, 56, 1);
+    put32(b, 64, 1); put32(b, 68, 5); put64(b, 72, 0); put64(b, 80, 0x400000);
+    put64(b, 88, 0x400000); put64(b, 96, 0x1000); put64(b, 104, 0x1000); put64(b, 112, 0x1000);
+    copy_text(b, 0x78, code, clen);
+    let off: i64 = 0x78 + clen;
+    put8(b, off, 0x89); put8(b, off + 1, 0xC7);
+    put8(b, off + 2, 0xB8); put32(b, off + 3, 60);
+    put8(b, off + 7, 0x0F); put8(b, off + 8, 0x05);
+    return 0x1000;
+}
+

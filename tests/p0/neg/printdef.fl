@@ -1,0 +1,2 @@
+fn print(a: i64) -> i64 { return a; }
+fn main() -> i64 { return 0; }

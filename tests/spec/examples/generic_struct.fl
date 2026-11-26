@@ -1,0 +1,9 @@
+// SPEC-EXAMPLE generic_struct
+// 期望: 5
+struct Box[T] { v: T }
+
+fn main() -> i64 {
+    let b: Box[i64] = Box[i64]{ v: 5 };
+    print(b.v);
+    return 0;
+}

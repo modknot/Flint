@@ -1,0 +1,11 @@
+// SPEC-EXAMPLE generic_fn
+// 期望: 9（单态化为 i64）
+fn max[T](a: T, b: T) -> T {
+    if a > b { return a; }
+    return b;
+}
+
+fn main() -> i64 {
+    print(max::[i64](3, 9));
+    return 0;
+}

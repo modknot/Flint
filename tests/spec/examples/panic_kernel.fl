@@ -1,0 +1,11 @@
+// SPEC-EXAMPLE panic_kernel
+// 期望: 1（panic 路径不执行，仅示意 fatal 返回 !）
+fn fatal(msg: str) -> ! {
+    panic(msg);
+}
+
+fn main() -> i64 {
+    if false { fatal("unreachable"); }
+    print(1);
+    return 0;
+}

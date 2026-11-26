@@ -1,0 +1,24 @@
+// EXPECT stdout:3
+// EXPECT exit:0
+struct Token {
+    kind: u8,
+    start: u32,
+    len: u32,
+}
+
+fn main() -> i64 {
+    let toks: [Token; 4] = [
+        Token{ kind: 1, start: 0, len: 2 },
+        Token{ kind: 2, start: 2, len: 1 },
+        Token{ kind: 1, start: 3, len: 3 },
+        Token{ kind: 1, start: 6, len: 1 },
+    ];
+    let n: i64 = 0;
+    let i: i64 = 0;
+    while i < 4 {
+        if toks[i].kind == 1 { n += 1; }
+        i += 1;
+    }
+    print(n);
+    return 0;
+}

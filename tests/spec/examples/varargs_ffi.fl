@@ -1,0 +1,10 @@
+// SPEC-EXAMPLE varargs_ffi
+// 期望: 7（走 C ABI 的变参调用，仅 extern "C" 允许 ...）
+extern "C" {
+    fn printf(fmt: ^ro byte, ...) -> i32;
+}
+
+fn main() -> i64 {
+    printf("%d\n" as ^ro byte, 7);
+    return 0;
+}

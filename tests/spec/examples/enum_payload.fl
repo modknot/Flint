@@ -1,0 +1,18 @@
+// SPEC-EXAMPLE enum_payload
+// 期望: 12（7 + (2+3)）
+enum Num {
+    I(i64),
+    Pair{ a: i64, b: i64 },
+}
+
+fn eval(n: Num) -> i64 {
+    match n {
+        Num::I(v) => v,
+        Num::Pair{ a, b } => a + b,
+    }
+}
+
+fn main() -> i64 {
+    print(eval(Num::I(7)) + eval(Num::Pair{ a: 2, b: 3 }));
+    return 0;
+}

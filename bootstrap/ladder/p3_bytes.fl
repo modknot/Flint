@@ -1,0 +1,19 @@
+// EXPECT stdout:1015
+// EXPECT exit:0
+fn main() -> i64 {
+    let p: ^byte = alloc(10, 1);
+    let i: i64 = 0;
+    while i < 10 {
+        p[i] = ('a' as byte) + (i as byte);
+        i += 1;
+    }
+    let s: i64 = 0;
+    i = 0;
+    while i < 10 {
+        s += p[i] as i64;
+        i += 1;
+    }
+    free(p);
+    print(s);
+    return 0;
+}

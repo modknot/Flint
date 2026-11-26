@@ -1,0 +1,6 @@
+fn zero() -> i64 {
+}
+fn main() -> i64 {
+    print(zero());
+    return 5;
+}

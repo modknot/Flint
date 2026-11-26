@@ -1,0 +1,130 @@
+// EXPECT stdout:7
+// EXPECT exit:0
+// 最小代码生成骨架：AST -> 字节码缓冲 -> 栈式虚拟机执行。
+struct Node {
+    kind: i64,
+    val: i64,
+    left: ^Node,
+    right: ^Node,
+}
+
+struct Token {
+    kind: u8,
+    val: i64,
+}
+
+fn new_node(kind: i64, val: i64, left: ^Node, right: ^Node) -> ^Node {
+    let n: ^Node = alloc(32, 8);
+    n.kind = kind;
+    n.val = val;
+    n.left = left;
+    n.right = right;
+    return n;
+}
+
+fn parse_primary(toks: ^Token, pos: ^i64) -> ^Node {
+    let k: i64 = toks[pos.*].kind as i64;
+    if k == 1 {
+        let v: i64 = toks[pos.*].val;
+        pos.* += 1;
+        return new_node(0, v, 0, 0);
+    }
+    return 0;
+}
+
+fn parse_term(toks: ^Token, pos: ^i64) -> ^Node {
+    let left: ^Node = parse_primary(toks, pos);
+    while (toks[pos.*].kind as i64) == 3 {
+        pos.* += 1;
+        let right: ^Node = parse_primary(toks, pos);
+        left = new_node(2, 0, left, right);
+    }
+    return left;
+}
+
+fn parse_expr(toks: ^Token, pos: ^i64) -> ^Node {
+    let left: ^Node = parse_term(toks, pos);
+    while (toks[pos.*].kind as i64) == 2 {
+        pos.* += 1;
+        let right: ^Node = parse_term(toks, pos);
+        left = new_node(1, 0, left, right);
+    }
+    return left;
+}
+
+fn emit_byte(buf: ^u8, len: ^i64, b: i64) {
+    buf[len.*] = b as u8;
+    len.* += 1;
+}
+
+fn gen(n: ^Node, buf: ^u8, len: ^i64) {
+    let k: i64 = n.kind;
+    if k == 0 {
+        emit_byte(buf, len, 1);
+        emit_byte(buf, len, n.val);
+        return;
+    }
+    gen(n.left, buf, len);
+    gen(n.right, buf, len);
+    if k == 1 { emit_byte(buf, len, 2); }
+    if k == 2 { emit_byte(buf, len, 3); }
+}
+
+fn run_vm(buf: ^u8, len: i64) -> i64 {
+    let st: ^i64 = alloc(64, 8);
+    let sp: ^i64 = alloc(8, 8);
+    let pc: ^i64 = alloc(8, 8);
+    sp.* = 0;
+    pc.* = 0;
+    while pc.* < len {
+        let op: i64 = buf[pc.*] as i64;
+        if op == 1 {
+            pc.* += 1;
+            st[sp.*] = buf[pc.*] as i64;
+            sp.* += 1;
+        }
+        if op == 2 {
+            st[sp.* - 2] = st[sp.* - 2] + st[sp.* - 1];
+            sp.* = sp.* - 1;
+        }
+        if op == 3 {
+            st[sp.* - 2] = st[sp.* - 2] * st[sp.* - 1];
+            sp.* = sp.* - 1;
+        }
+        pc.* += 1;
+    }
+    let r: i64 = st[sp.* - 1];
+    free(pc);
+    free(sp);
+    free(st);
+    return r;
+}
+
+fn main() -> i64 {
+    let toks: ^Token = alloc(80, 8);
+    toks[0].kind = 1;
+    toks[0].val = 1;
+    toks[1].kind = 2;
+    toks[1].val = 0;
+    toks[2].kind = 1;
+    toks[2].val = 2;
+    toks[3].kind = 3;
+    toks[3].val = 0;
+    toks[4].kind = 1;
+    toks[4].val = 3;
+    let pos: ^i64 = alloc(8, 8);
+    pos.* = 0;
+    let ast: ^Node = parse_expr(toks, pos);
+    let code: ^u8 = alloc(64, 8);
+    let clen: ^i64 = alloc(8, 8);
+    clen.* = 0;
+    gen(ast, code, clen);
+    let result: i64 = run_vm(code, clen.*);
+    print(result);
+    free(code);
+    free(clen);
+    free(pos);
+    free(toks);
+    return 0;
+}
+

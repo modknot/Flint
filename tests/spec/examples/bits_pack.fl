@@ -1,0 +1,12 @@
+// SPEC-EXAMPLE bits_pack
+// 期望: 2（u16 底层，总宽 16 位，无额外填充）
+bits Ctrl: u16 {
+    en: 1,
+    mode: 3,
+    flags: 12,
+}
+
+fn main() -> i64 {
+    print(size_of(Ctrl));
+    return 0;
+}

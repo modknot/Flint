@@ -1,0 +1,11 @@
+// SPEC-EXAMPLE mem_ops
+// 期望: 3 / 0
+fn main() -> i64 {
+    let src: [i64; 3] = [3, 5, 7];
+    let dst: [i64; 3] = [0, 0, 0];
+    copy_bytes(^dst[0] as ^byte, ^src[0] as ^ro byte, 24);
+    print(dst[0]);
+    zero_bytes(^dst[0] as ^byte, 24);
+    print(dst[0]);
+    return 0;
+}

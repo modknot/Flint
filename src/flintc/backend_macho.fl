@@ -6,13 +6,15 @@
 //   0x100 LC_BUILD_VERSION
 //   0x118 LC_MAIN
 //   0x130 LC_SEGMENT_64(__LINKEDIT)
+//   0x178 LC_LOAD_DYLINKER
+//   0x198 LC_LOAD_DYLIB (libSystem)
 //   0x200 generated code
 //   0x2000 file size
 fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
     zero_bytes(b, 0x2000);
 
     put32(b, 0, 0xFEEDFACF); put32(b, 4, 0x01000007); put32(b, 8, 3); put32(b, 12, 2);
-    put32(b, 16, 5); put32(b, 20, 0x158); put32(b, 24, 1);
+    put32(b, 16, 7); put32(b, 20, 0x1D0); put32(b, 24, 0x85);
 
     // __PAGEZERO: 72-byte segment command at 0x20.
     put32(b, 32, 0x19); put32(b, 36, 72);
@@ -46,6 +48,23 @@ fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
     put64(b, 328, 0x100002000); put64(b, 336, 0x1000);
     put64(b, 344, 0x2000); put64(b, 352, 0);
     put32(b, 360, 7); put32(b, 364, 1); put32(b, 368, 0); put32(b, 372, 0);
+
+    // LC_LOAD_DYLINKER at 0x178.
+    put32(b, 376, 0xE); put32(b, 380, 32);
+    put8(b, 388, 47); put8(b, 389, 117); put8(b, 390, 115); put8(b, 391, 114);
+    put8(b, 392, 47); put8(b, 393, 108); put8(b, 394, 105); put8(b, 395, 98);
+    put8(b, 396, 47); put8(b, 397, 100); put8(b, 398, 121); put8(b, 399, 108); put8(b, 400, 100);
+
+    // LC_LOAD_DYLIB at 0x198.
+    put32(b, 408, 0xC); put32(b, 412, 56);
+    put32(b, 416, 24); put32(b, 420, 0); put32(b, 424, 0); put32(b, 428, 0);
+    put8(b, 432, 47); put8(b, 433, 117); put8(b, 434, 115); put8(b, 435, 114);
+    put8(b, 436, 47); put8(b, 437, 108); put8(b, 438, 105); put8(b, 439, 98);
+    put8(b, 440, 47); put8(b, 441, 108); put8(b, 442, 105); put8(b, 443, 98);
+    put8(b, 444, 83); put8(b, 445, 121); put8(b, 446, 115); put8(b, 447, 116);
+    put8(b, 448, 101); put8(b, 449, 109); put8(b, 450, 46); put8(b, 451, 66);
+    put8(b, 452, 46); put8(b, 453, 100); put8(b, 454, 121); put8(b, 455, 108);
+    put8(b, 456, 105); put8(b, 457, 98);
 
     copy_text(b, 0x200, code, clen);
     let off: i64 = 0x200 + clen;

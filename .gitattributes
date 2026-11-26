@@ -1,2 +1,3 @@
-*.asm linguist-language=C++
-
+*.asm linguist-language=C
+*.s linguist-language=C
+*.inc linguist-language=C

@@ -7,13 +7,15 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $root 'scripts\flint-source.ps1')
-$stage0 = Join-Path $root 'bootstrap\flintc0.exe'
+& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'build-flint0.ps1')
+if ($LASTEXITCODE -ne 0) { throw "flint0 build failed ($LASTEXITCODE)" }
+$stage0 = Join-Path $root 'build\flint0.exe'
 $ladder = Join-Path $PSScriptRoot 'ladder'
 $outDir = Join-Path $root 'build\bootstrap'
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
 if (-not (Test-Path -LiteralPath $stage0)) {
-    Write-Host '[gate] bootstrap/flintc0.exe 不存在'
+    Write-Host '[gate] build/flint0.exe 不存在'
     exit 1
 }
 

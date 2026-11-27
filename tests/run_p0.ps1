@@ -5,7 +5,9 @@
 # ===========================================================================
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$stage0 = Join-Path $root 'bootstrap\flintc0.exe'
+& pwsh -NoProfile -File (Join-Path $root 'bootstrap\build-flint0.ps1')
+if ($LASTEXITCODE -ne 0) { throw "flint0 build failed ($LASTEXITCODE)" }
+$stage0 = Join-Path $root 'build\flint0.exe'
 $work = Join-Path $root 'build\testrun'
 if (-not (Test-Path -LiteralPath $stage0)) { throw "缺少上一级编译器: $stage0" }
 if (-not (Test-Path -LiteralPath $work)) { New-Item -ItemType Directory -Path $work | Out-Null }

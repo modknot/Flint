@@ -1,6 +1,7 @@
-# Build flintc from its multi-file Flint source without an assembler.
-# 1. Expand // include: directives into build/flintc.unit.fl
-# 2. Compile that translation unit with the previous compiler, bootstrap/flintc0.exe
+# Build flintc without a checked-in compiler binary or external assembler.
+# 1. Assemble src/seed/*.asm into build/flint0.exe with bootstrap/asm.ps1.
+# 2. Expand // include: directives into build/flintc.unit.fl.
+# 3. Compile that translation unit with flint0.
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 . (Join-Path $root 'scripts\flint-source.ps1')
@@ -10,11 +11,10 @@ $outDir = Join-Path $root 'build'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $unit = Join-Path $outDir 'flintc.unit.fl'
 $exe = Join-Path $outDir 'flintc.exe'
-$stage0 = Join-Path $root 'bootstrap\flintc0.exe'
+$stage0 = Join-Path $outDir 'flint0.exe'
 
-if (-not (Test-Path -LiteralPath $stage0)) {
-    throw 'bootstrap/flintc0.exe is missing; it is the previous compiler used to build this one.'
-}
+& pwsh -NoProfile -File (Join-Path $root 'bootstrap\build-flint0.ps1')
+if ($LASTEXITCODE -ne 0) { throw "flint0 build failed ($LASTEXITCODE)" }
 
 $expanded = Expand-FlintSource -Path $srcRoot
 [IO.File]::WriteAllLines($unit, $expanded, (New-Object System.Text.UTF8Encoding($false)))

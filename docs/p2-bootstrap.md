@@ -4,7 +4,8 @@
 
 **一套 Flint 编译器源码 + 三个目标后端**，不做三份平台专用引导移植。
 
-- `bootstrap\flintc0.exe` 是仓库内置的 stage-0 编译器，只负责把第一版 `src\flintc\flintc.fl` 编译成 Windows PE。
+- `src\seed\*.asm` 是仓库内置的第一代编译器源码；`bootstrap\asm.ps1` 是项目自带的两遍 x86-64 汇编器，从汇编源码生成 `build\flint0.exe`。仓库不放现成 exe，也不依赖 NASM、C 编译器或 Python。
+- `flint0` 负责把第一版 `src\flintc\flintc.fl` 编译成 Windows PE。
 - flintc 负责读取 `.fl` 源码、词法、语法、x86-64 代码生成，并写出 PE / ELF64 / Mach-O。
 - Linux / macOS 原生编译器由 flintc 交叉编译自身得到；macOS 先保 x86-64，Apple Silicon arm64 后置。
 
@@ -24,7 +25,8 @@ main.fl           flintc 入口
 ```
 
 `build-flintc.ps1` 和 `bootstrap\gate.ps1` 会递归展开 `// include:` 指令，
-生成 `build\flintc.unit.fl` 后再交给 `bootstrap\flintc0.exe`。这样源码是多文件，stage-0 仍只吃一个翻译单元；
+生成 `build\flintc.unit.fl`；构建脚本先用 `bootstrap\asm.ps1` 汇编 `src\seed` 得到
+`build\flint0.exe`，再由它编译该翻译单元。这样源码是多文件，第一代编译器仍只吃一个翻译单元；
 以后 flintc 自己支持模块时，再由编译器接管 include。
 
 ## 当前闸门 13 / 13
@@ -33,7 +35,7 @@ main.fl           flintc 入口
 | --- | --- |
 | p0–p6 | 算术、循环、指针/堆、字节缓冲、结构体数组、机器码补丁、函数指针 |
 | p7–p9 | 最小词法器、递归下降解析器、AST→字节码→栈式 VM |
-| p10 | `bootstrap\flintc0.exe` 编译整个 flintc；flintc 读 `sample.fl`，写出三个目标文件 |
+| p10 | `build\flint0.exe` 编译整个 flintc；flintc 读 `sample.fl`，写出三个目标文件 |
 | p11 | 生成程序自己写文件 |
 | p12 | 生成程序自己读文件 |
 

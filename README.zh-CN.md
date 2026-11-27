@@ -2,13 +2,16 @@
 
 Flint 是一套从零实现的系统级编程语言与编译器工具链，不依赖 LLVM、GCC、Clang、ANTLR、Bison、Yacc、Tree-sitter、语法生成器或现成 VM。
 
-编译器由上一版编译器构建：
+编译器从源码构建：
 
 ```text
-bootstrap/flintc0.exe -> flintc -> 下一版 flintc -> ...
+src/seed/*.asm + bootstrap/asm.ps1 -> flint0 -> flintc -> 下一版 flintc -> ...
 ```
 
-`bootstrap/flintc0.exe` 是仓库内置的 stage-0 编译器，只负责启动链条；后续版本由 `src/flintc` 的源码交给上一版编译器生成。构建不需要汇编器。
+第一代编译器以 x86-64 汇编源码形式放在 `src/seed/`。`bootstrap/asm.ps1` 是项目自带的
+两遍汇编器，从这些源码生成 `build/flint0.exe`；仓库不放入现成编译器二进制，也不需要
+NASM、C 编译器、链接器或 Python。`flint0` 再把 `src/flintc` 编译成 `build/flintc.exe`，
+后续版本由上一版编译器生成。
 
 英文说明与完整状态见 [README.md](README.md)。
 

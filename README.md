@@ -4,15 +4,18 @@ Flint is a from-scratch systems-level programming language and compiler toolchai
 It does not depend on LLVM, GCC, Clang, ANTLR, Bison, Yacc, Tree-sitter, parser
 generators, third-party code generators, or an existing VM framework.
 
-The compiler is built by its previous version:
+The compiler is built from source at every stage:
 
 ```text
-bootstrap/flintc0.exe -> flintc -> next flintc -> ...
+src/seed/*.asm + bootstrap/asm.ps1 -> flint0 -> flintc -> next flintc -> ...
 ```
 
-`bootstrap/flintc0.exe` is the checked-in stage-0 compiler. It starts the chain;
-later stages are compiled from `src/flintc` by the compiler that came before
-them. No assembler is required to build the project.
+The first-generation compiler is checked in as x86-64 assembly source under
+`src/seed/`. `bootstrap/asm.ps1` is the project's own two-pass assembler; it
+turns that source into `build/flint0.exe`. No prebuilt compiler binary, NASM,
+C compiler, linker, or Python interpreter is required. `flint0` then compiles
+`src/flintc` into `build/flintc.exe`. A later stage is built by the compiler
+that came before it.
 
 ## Status
 
@@ -36,22 +39,38 @@ by the target executable's exit code.
 
 ## Bootstrap chain
 
-The earliest assembly seed of the prototype has been retired. The repository now
-starts from an opaque stage-0 binary and keeps the rest of the chain in Flint.
+The first-generation compiler is assembly source, not a checked-in executable.
 
 ```text
-stage-0 binary -> first flintc -> next flintc -> ...
+src/seed/seed.asm + modules
+        |
+        |  bootstrap/asm.ps1 (project's own two-pass x86-64 assembler)
+        v
+build/flint0.exe
+        |
+        |  compiles the expanded src/flintc translation unit
+        v
+build/flintc.exe
 ```
 
 `build-flintc.ps1` expands the `// include:` directives in
-`src/flintc/flintc.fl` into one translation unit, then passes it to
-`bootstrap/flintc0.exe`. Build outputs stay in `build/` and are never committed.
+`src/flintc/flintc.fl` into one translation unit, assembles `flint0` from
+`src/seed`, then passes the unit to `flint0`. Build outputs stay in `build/` and
+are never committed.
+
+The current `flintc` still has a fixed sample input and a fixed output
+capacity. It does not yet parse `argc/argv`, and its runtime builtins have not
+been ported into its own code generator, so a fixed-point self-hosted build is
+the next milestone rather than a finished feature.
 
 ## Source layout
 
 ```text
-bootstrap/flintc0.exe      checked-in stage-0 compiler used for the first build
-build-flintc.ps1           expand Flint includes and compile flintc
+src/seed/seed.asm          first-generation compiler in x86-64 assembly
+src/seed/*.asm             lexer, parser, codegen, memory, diagnostics, file I/O
+bootstrap/asm.ps1          project's own two-pass x86-64 assembler
+bootstrap/build-flint0.ps1 assemble seed into build/flint0.exe
+build-flintc.ps1           assemble flint0, expand includes, compile flintc
 scripts/flint-source.ps1   recursive // include: expansion
 src/flintc/flintc.fl       flintc source root; includes the modules below
 src/flintc/common.fl       token/node/local/function/struct structures
@@ -63,15 +82,15 @@ src/flintc/backend_elf.fl  ELF64 writer
 src/flintc/backend_macho.fl Mach-O 64 writer
 src/flintc/main.fl         flintc entry point
 src/flintc/sample.fl       sample input compiled into the three targets
-bootstrap/                 gate, ladder, and the stage-0 binary
+bootstrap/                 assembler, flint0 builder, gate, ladder
 tests/                     stage-0 regression and specification examples
 docs/                      design, acceptance, and bootstrap notes
 ```
 
 ## Build
 
-Requirements: PowerShell 7. No assembler, C compiler, linker, or package
-manager is required.
+Requirements: PowerShell 7. No external assembler, C compiler, linker, or
+package manager is required; the repository carries its own assembler.
 
 ```powershell
 pwsh -NoProfile -File build-flintc.ps1 # build build/flintc.exe from split sources

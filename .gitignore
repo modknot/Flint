@@ -1,7 +1,6 @@
 # Build outputs and temporary artifacts
 build/
 *.exe
-!bootstrap/flintc0.exe
 *.obj
 *.o
 *.pdb

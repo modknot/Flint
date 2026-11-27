@@ -12,11 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build flintc with the previous compiler
+      - name: Build flintc from the assembly seed
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           pwsh -NoProfile -File build-flintc.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Bootstrap gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File bootstrap\gate.ps1
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Run flintc and Windows PE target

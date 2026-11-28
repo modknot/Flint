@@ -164,8 +164,12 @@ fn is_main_name(c: ^Ctx, tok: i64) -> i64 {
 
 fn find_main(c: ^Ctx, prog: ^Node) -> i64 {
     let f: ^Node = prog;
+    let cnt: i64 = 0;
     while f != 0 {
-        if f.kind == 91 { if is_main_name(c, f.val) == 1 { return f.val; } }
+        if f.kind == 91 {
+            cnt += 1;
+            if is_main_name(c, f.val) == 1 { return f.val; }
+        }
         f = f.next;
     }
     return -1;
@@ -359,45 +363,31 @@ fn parse_primary(c: ^Ctx) -> ^Node {
 
 fn parse_term(c: ^Ctx) -> ^Node {
     let left_t: ^Node = parse_primary(c);
-    while peek(c) == 19 {
-        advance(c);
-        let right_mul: ^Node = parse_primary(c);
-        let node_mul: ^Node = new_node(10, 19);
-        node_mul.left = left_t; node_mul.right = right_mul;
-        left_t = node_mul;
-    }
-    while peek(c) == 20 {
-        advance(c);
-        let right_div: ^Node = parse_primary(c);
-        let node_div: ^Node = new_node(10, 20);
-        node_div.left = left_t; node_div.right = right_div;
-        left_t = node_div;
-    }
-    while peek(c) == 21 {
-        advance(c);
-        let right_mod: ^Node = parse_primary(c);
-        let node_mod: ^Node = new_node(10, 21);
-        node_mod.left = left_t; node_mod.right = right_mod;
-        left_t = node_mod;
+    let go_t: i64 = 1;
+    while go_t == 1 {
+        let kt: i64 = peek(c);
+        if kt == 19 { advance(c); let r1: ^Node = parse_primary(c); let n1: ^Node = new_node(10, 19); n1.left = left_t; n1.right = r1; left_t = n1; }
+        else {
+            if kt == 20 { advance(c); let r2: ^Node = parse_primary(c); let n2: ^Node = new_node(10, 20); n2.left = left_t; n2.right = r2; left_t = n2; }
+            else {
+                if kt == 21 { advance(c); let r3: ^Node = parse_primary(c); let n3: ^Node = new_node(10, 21); n3.left = left_t; n3.right = r3; left_t = n3; }
+                else { go_t = 0; }
+            }
+        }
     }
     return left_t;
 }
 
 fn parse_expr(c: ^Ctx) -> ^Node {
     let left_e: ^Node = parse_term(c);
-    while peek(c) == 17 {
-        advance(c);
-        let right_add: ^Node = parse_term(c);
-        let node_add: ^Node = new_node(10, 17);
-        node_add.left = left_e; node_add.right = right_add;
-        left_e = node_add;
-    }
-    while peek(c) == 18 {
-        advance(c);
-        let right_sub: ^Node = parse_term(c);
-        let node_sub: ^Node = new_node(10, 18);
-        node_sub.left = left_e; node_sub.right = right_sub;
-        left_e = node_sub;
+    let go_e: i64 = 1;
+    while go_e == 1 {
+        let ke: i64 = peek(c);
+        if ke == 17 { advance(c); let ra: ^Node = parse_term(c); let na: ^Node = new_node(10, 17); na.left = left_e; na.right = ra; left_e = na; }
+        else {
+            if ke == 18 { advance(c); let rs: ^Node = parse_term(c); let ns: ^Node = new_node(10, 18); ns.left = left_e; ns.right = rs; left_e = ns; }
+            else { go_e = 0; }
+        }
     }
     return left_e;
 }

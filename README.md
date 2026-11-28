@@ -21,6 +21,8 @@ that came before it.
 
 - Stage 0 acceptance tests: **17 / 17**.
 - Bootstrap gate: **13 / 13** (`bootstrap/gate.ps1`).
+- Self-host fixed point reached: stage 2 and stage 3 compilers are byte-identical
+  (`bootstrap/bootstrap.ps1`).
 - `flintc` supports `fn`, `let`, `return`, `if/else`, `while`, assignment,
   `+ - * / %`, comparisons, local variables, multiple functions, parameters,
   calls, and recursion.
@@ -33,9 +35,9 @@ that came before it.
 - GitHub Actions builds the targets on Windows and runs the generated ELF on
   Linux and the generated Mach-O on macOS (`macos-15-intel`).
 
-`flintc` currently writes three files and prints `6`: three successful writes
-plus three successful magic-number checks. The actual program result is verified
-by the target executable's exit code.
+`flintc` writes PE32+, ELF64, and Mach-O files and exits with status 0 on
+success, 1 on a compile failure. The target executable's exit code verifies the
+compiled program itself.
 
 ## Bootstrap chain
 
@@ -51,17 +53,26 @@ build/flint0.exe
         |  compiles the expanded src/flintc translation unit
         v
 build/flintc.exe
+        |
+        |  flintc compiles the same translation unit again
+        v
+build/flintc-stage2.exe  ==  build/flintc-stage3.exe   (fixed point)
 ```
+
+`bootstrap/bootstrap.ps1` performs the whole chain and fails unless stage 2 and
+stage 3 are byte-identical. The runtime library itself is assembled from
+`src/runtime/runtime.asm` by `bootstrap/gen-runtime.ps1`, which regenerates
+`src/flintc/runtime.fl`; no runtime bytes are copied from an external toolchain.
 
 `build-flintc.ps1` expands the `// include:` directives in
 `src/flintc/flintc.fl` into one translation unit, assembles `flint0` from
 `src/seed`, then passes the unit to `flint0`. Build outputs stay in `build/` and
 are never committed.
 
-The current `flintc` still has a fixed sample input and a fixed output
-capacity. It does not yet parse `argc/argv`, and its runtime builtins have not
-been ported into its own code generator, so a fixed-point self-hosted build is
-the next milestone rather than a finished feature.
+The current `flintc` runs in bootstrap mode: it reads the expanded compiler
+source from `build/flintc.unit.fl` and writes `build/flintc-out.exe`. A normal
+`argc/argv` command-line entry is the next task. The fixed-point self-hosted
+build is already reached by `bootstrap/bootstrap.ps1`.
 
 ## Source layout
 
@@ -70,6 +81,8 @@ src/seed/seed.asm          first-generation compiler in x86-64 assembly
 src/seed/*.asm             lexer, parser, codegen, memory, diagnostics, file I/O
 bootstrap/asm.ps1          project's own two-pass x86-64 assembler
 bootstrap/build-flint0.ps1 assemble seed into build/flint0.exe
+bootstrap/bootstrap.ps1    full seed -> flint0 -> flintc -> fixed point check
+bootstrap/gen-runtime.ps1  assemble src/runtime and regenerate runtime.fl
 build-flintc.ps1           assemble flint0, expand includes, compile flintc
 scripts/flint-source.ps1   recursive // include: expansion
 src/flintc/flintc.fl       flintc source root; includes the modules below
@@ -81,7 +94,8 @@ src/flintc/backend_pe.fl   PE32+ writer
 src/flintc/backend_elf.fl  ELF64 writer
 src/flintc/backend_macho.fl Mach-O 64 writer
 src/flintc/main.fl         flintc entry point
-src/flintc/sample.fl       sample input compiled into the three targets
+src/runtime/runtime.asm    runtime library assembled into generated programs
+src/flintc/sample.fl       small sample input for the three targets
 bootstrap/                 assembler, flint0 builder, gate, ladder
 tests/                     stage-0 regression and specification examples
 docs/                      design, acceptance, and bootstrap notes
@@ -103,13 +117,14 @@ build\flintc.exe
 build\flintc-pe.exe
 ```
 
-`flintc` reads `src/flintc/sample.fl`, writes `build/flintc-pe.exe`,
-`build/flintc-elf`, and `build/flintc-macho`, and prints `6`. The sample exits
-with `20` on Windows, Linux, and macOS.
+In bootstrap mode `flintc` reads `build/flintc.unit.fl` and writes
+`build/flintc-out.exe` plus the test PE/ELF/Mach-O files. `bootstrap/bootstrap.ps1`
+drives this chain. A normal `argc/argv` command-line entry is the next task.
 
 ## Tests
 
 ```powershell
+pwsh -NoProfile -File bootstrap\bootstrap.ps1
 pwsh -NoProfile -File bootstrap\gate.ps1
 pwsh -NoProfile -File tests\run_p0.ps1
 pwsh -NoProfile -File tests\run_all.ps1
@@ -141,14 +156,15 @@ Not implemented yet:
 - string literals
 - arrays with declared bounds and aggregate values
 - global variables and modules
-- command-line input; `sample.fl` is currently fixed
+- command-line input; `build/flintc.unit.fl` is currently fixed
 - relocations, symbol tables, dynamic linking
-- a fixed-point self-hosted build
 
 ## Backend notes
 
-- PE: one `.text` section, entry RVA `0x1000`, IAT at RVA `0x2000`, imports
-  `KERNEL32.dll!ExitProcess`, exit stub after the generated code.
+- PE: one `.text` section, entry RVA `0x1000`, eight KERNEL32 imports. The
+  import table and IAT occupy RVA `0x30000` upward; the entry stub reserves
+  `0x28` bytes of shadow space before calling `main`, and the exit stub calls
+  `ExitProcess` after the generated code.
 - ELF64: one `PT_LOAD`, entry `0x400078`, Linux `exit` syscall 60.
 - Mach-O 64: static `__TEXT` / `__DATA` / `__LINKEDIT` segments,
   `LC_UNIXTHREAD` entry at file offset `0x300`, a `0x4000`-byte zero-filled

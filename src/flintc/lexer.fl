@@ -11,6 +11,20 @@ fn is_digit(c: i64) -> i64 {
     return 0;
 }
 
+fn is_hex(c: i64) -> i64 {
+    if c >= 48 { if c <= 57 { return 1; } }
+    if c >= 97 { if c <= 102 { return 1; } }
+    if c >= 65 { if c <= 70 { return 1; } }
+    return 0;
+}
+
+fn hex_val(c: i64) -> i64 {
+    if c >= 48 { if c <= 57 { return c - 48; } }
+    if c >= 97 { if c <= 102 { return c - 87; } }
+    if c >= 65 { if c <= 70 { return c - 55; } }
+    return 0;
+}
+
 fn is_ident(c: i64) -> i64 {
     if is_alpha(c) == 1 { return 1; }
     if is_digit(c) == 1 { return 1; }
@@ -73,15 +87,49 @@ fn lex(src: ^u8, n: i64, toks: ^Token) -> i64 {
             if is_digit(b) == 1 {
                 let st_num: i64 = i;
                 let v: i64 = 0;
-                let go_num: i64 = 1;
-                while go_num == 1 {
-                    if i < n {
-                        if is_digit(src[i] as i64) == 1 { v = v * 10 + (src[i] as i64 - 48); i += 1; } else { go_num = 0; }
-                    } else { go_num = 0; }
+                let is_hx: i64 = 0;
+                if b == 48 {
+                    if i + 1 < n {
+                        if src[i + 1] as i64 == 120 { is_hx = 1; }
+                        if src[i + 1] as i64 == 88 { is_hx = 1; }
+                    }
+                }
+                if is_hx == 1 {
+                    i += 2;
+                    let go_hex: i64 = 1;
+                    while go_hex == 1 {
+                        if i < n {
+                            if is_hex(src[i] as i64) == 1 { v = v * 16 + hex_val(src[i] as i64); i += 1; } else { go_hex = 0; }
+                        } else { go_hex = 0; }
+                    }
+                } else {
+                    let go_num: i64 = 1;
+                    while go_num == 1 {
+                        if i < n {
+                            if is_digit(src[i] as i64) == 1 { v = v * 10 + (src[i] as i64 - 48); i += 1; } else { go_num = 0; }
+                        } else { go_num = 0; }
+                    }
                 }
                 toks[c].kind = 2; toks[c].start = st_num; toks[c].len = i - st_num; toks[c].val = v;
                 c += 1;
                 handled = 1;
+            }
+        }
+
+        if handled == 0 {
+            if b == 47 {
+                if i + 1 < n {
+                    if src[i + 1] as i64 == 47 {
+                        i += 2;
+                        let go_c: i64 = 1;
+                        while go_c == 1 {
+                            if i < n {
+                                if src[i] as i64 == 10 { go_c = 0; } else { i += 1; }
+                            } else { go_c = 0; }
+                        }
+                        handled = 1;
+                    }
+                }
             }
         }
 

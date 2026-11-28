@@ -714,7 +714,7 @@ function Encode-Instruction([string]$mn, $ops, [int64]$addr, [hashtable]$symbols
 # ---------------------------------------------------------------------------
 # 汇编器
 # ---------------------------------------------------------------------------
-function Invoke-Assembler([string]$source, [hashtable]$defines, [string]$output) {
+function Invoke-Assembler([string]$source, [hashtable]$defines, [string]$output, [string]$mapPath) {
     $lines = Expand-Source $source $defines
 
     # 先把纯常量 define 求值
@@ -873,7 +873,14 @@ function Invoke-Assembler([string]$source, [hashtable]$defines, [string]$output)
         for($j=0;$j -lt $span;$j++){ $data[$f.At+$j]=[byte](($val -shr (8*$j)) -band 0xFF) }
     }
 
-    [IO.File]::WriteAllBytes((Resolve-Path -LiteralPath (Split-Path -Parent $output)).Path + '\' + (Split-Path -Leaf $output), [byte[]]$data)
+    if ($mapPath) {
+        $map = @{}
+        foreach ($k in $symbols.Keys) { if (-not $k.StartsWith('__')) { $map[$k] = $symbols[$k] } }
+        [IO.File]::WriteAllText($mapPath, ($map | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+    }
+    $outDir = Split-Path -Parent $output
+    if (-not $outDir) { $outDir = (Get-Location).Path }
+    [IO.File]::WriteAllBytes([IO.Path]::Combine((Resolve-Path -LiteralPath $outDir).Path, (Split-Path -Leaf $output)), [byte[]]$data)
     Write-Host ("asm: {0} ({1} bytes)" -f $output, $data.Count)
 }
 
@@ -881,16 +888,17 @@ function Invoke-Assembler([string]$source, [hashtable]$defines, [string]$output)
 # CLI
 # ---------------------------------------------------------------------------
 $args = $args
-$source=$null; $output=$null; $defs=@{}
+$source=$null; $output=$null; $mapPath=$null; $defs=@{}
 for($i=0;$i -lt $args.Count;$i++){
     switch($args[$i]){
         '-Source' { $i++; $source=$args[$i] }
         '-Output' { $i++; $output=$args[$i] }
+        '-MapFile' { $i++; $mapPath=$args[$i] }
         '-Define' { $i++; $kv=$args[$i]; $p=$kv.Split('=',2); $defs[$p[0].ToLowerInvariant()] = '1'; if($p.Count -gt 1){ $defs[$p[0].ToLowerInvariant()] = $p[1] } }
     }
 }
-if(-not $source -or -not $output){ throw 'usage: asm.ps1 -Source <file> -Output <file> [-Define NAME=VALUE]' }
-try { Invoke-Assembler $source $defs $output } catch { Write-Host "asm failed at: $script:curLine"; throw }
+if(-not $source -or -not $output){ throw 'usage: asm.ps1 -Source <file> -Output <file> [-Define NAME=VALUE] [-MapFile <json>]' }
+try { Invoke-Assembler $source $defs $output $mapPath } catch { Write-Host "asm failed at: $script:curLine"; throw }
 
 
 

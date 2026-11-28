@@ -5,6 +5,7 @@
 // include: lexer.fl
 // include: parser.fl
 // include: codegen.fl
+// include: runtime.fl
 // include: backend_pe.fl
 // include: backend_elf.fl
 // include: backend_macho.fl

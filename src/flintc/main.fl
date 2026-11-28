@@ -1,49 +1,49 @@
 fn main() -> i64 {
     let sample: ^u8 = alloc(64, 8);
-    sample[0] = 115; sample[1] = 114; sample[2] = 99;  sample[3] = 47;
-    sample[4] = 102; sample[5] = 108; sample[6] = 105; sample[7] = 110;
-    sample[8] = 116; sample[9] = 99;  sample[10] = 47; sample[11] = 115;
-    sample[12] = 97; sample[13] = 109; sample[14] = 112; sample[15] = 108;
-    sample[16] = 101; sample[17] = 46; sample[18] = 102; sample[19] = 108;
+    sample[0] = 98;  sample[1] = 117; sample[2] = 105; sample[3] = 108;
+    sample[4] = 100; sample[5] = 47;  sample[6] = 102; sample[7] = 108;
+    sample[8] = 105; sample[9] = 110; sample[10] = 116; sample[11] = 99;
+    sample[12] = 46; sample[13] = 117; sample[14] = 110; sample[15] = 105;
+    sample[16] = 116; sample[17] = 46; sample[18] = 102; sample[19] = 108;
     sample[20] = 0;
 
-    let src: ^u8 = alloc(4096, 8);
-    let sn: i64 = readfile(sample, 20, src, 4096);
-    if sn == 0 { print(0); return 1; }
+    let src: ^u8 = alloc(0x20000, 8);
+    let sn: i64 = readfile(sample, 20, src, 0x20000);
+    if sn == 0 { print(11); return 1; }
 
-    let toks: ^Token = alloc(16384, 8);
+    let toks: ^Token = alloc(0x100000, 8);
     let nt: i64 = lex(src, sn, toks);
 
-    let locals: ^Local = alloc(4096, 8);
+    let locals: ^Local = alloc(0x20000, 8);
     let ln: ^i64 = alloc(8, 8); ln.* = 0;
     let pos: ^i64 = alloc(8, 8); pos.* = 0;
-    let code: ^u8 = alloc(0x4000, 8);
+    let code: ^u8 = alloc(0x30000, 8);
     let clen: ^i64 = alloc(8, 8); clen.* = 0;
-    let rets: ^i64 = alloc(512, 8);
+    let rets: ^i64 = alloc(0x2000, 8);
     let rn: ^i64 = alloc(8, 8); rn.* = 0;
-    let funcs: ^Func = alloc(8192, 8);
+    let funcs: ^Func = alloc(0x8000, 8);
     let fnp: ^i64 = alloc(8, 8); fnp.* = 0;
-    let callsp: ^Call = alloc(32768, 8);
+    let callsp: ^Call = alloc(0x40000, 8);
     let cnp: ^i64 = alloc(8, 8); cnp.* = 0;
-    let structs: ^Struct = alloc(2048, 8);
-    let fields: ^Field = alloc(4096, 8);
+    let structs: ^Struct = alloc(0x4000, 8);
+    let fields: ^Field = alloc(0x20000, 8);
     let scp: ^i64 = alloc(8, 8); scp.* = 0;
     let fcn: ^i64 = alloc(8, 8); fcn.* = 0;
-    let c: ^Ctx = alloc(136, 8);
+    let c: ^Ctx = alloc(0x100, 8);
     c.toks = toks; c.src = src; c.locals = locals; c.ln = ln; c.pos = pos;
     c.code = code; c.clen = clen; c.rets = rets; c.rn = rn;
     c.funcs = funcs; c.fc = fnp; c.calls = callsp; c.cn = cnp;
     c.structs = structs; c.fields = fields; c.sc = scp; c.fcn = fcn;
 
     let prog: ^Node = parse_program(c);
-    if prog == 0 { print(0); return 1; }
+    if prog == 0 { print(12); return 1; }
     let bad: i64 = gen_program(c, prog);
-    if bad != 0 { print(0); return 1; }
+    if bad != 0 { print(13); print(bad); return 1; }
 
     let pe_path: ^u8 = alloc(64, 8);
     path_common(pe_path);
-    pe_path[13] = 112; pe_path[14] = 101; pe_path[15] = 46;
-    pe_path[16] = 101; pe_path[17] = 120; pe_path[18] = 101; pe_path[19] = 0;
+    pe_path[13] = 111; pe_path[14] = 117; pe_path[15] = 116; pe_path[16] = 46;
+    pe_path[17] = 101; pe_path[18] = 120; pe_path[19] = 101; pe_path[20] = 0;
     let elf_path: ^u8 = alloc(64, 8);
     path_common(elf_path);
     elf_path[13] = 101; elf_path[14] = 108; elf_path[15] = 102; elf_path[16] = 0;
@@ -52,19 +52,19 @@ fn main() -> i64 {
     macho_path[13] = 109; macho_path[14] = 97; macho_path[15] = 99;
     macho_path[16] = 104; macho_path[17] = 111; macho_path[18] = 0;
 
-    let buf: ^u8 = alloc(0x2000, 8);
+    let buf: ^u8 = alloc(0x31000, 8);
     let ok: i64 = 0;
-    let plen: i64 = backend_pe(buf, code, clen.*);
+    let plen: i64 = backend_pe(buf, code, clen.*, c.entry);
     if save_file(pe_path, 19, buf, plen) == 1 { ok += 1; }
     if read32(buf, 0) == 0x5A4D { ok += 1; }
-    let elen: i64 = backend_elf(buf, code, clen.*);
+    let elen: i64 = backend_elf(buf, code, clen.*, c.entry);
     if save_file(elf_path, 16, buf, elen) == 1 { ok += 1; }
     if read32(buf, 0) == 0x464C457F { ok += 1; }
-    let mlen: i64 = backend_macho(buf, code, clen.*);
+    let mlen: i64 = backend_macho(buf, code, clen.*, c.entry);
     if save_file(macho_path, 18, buf, mlen) == 1 { ok += 1; }
     if read32(buf, 0) == 0xFEEDFACF { ok += 1; }
-
     print(ok);
+
     free(sample); free(src); free(toks); free(locals); free(ln); free(pos);
     free(code); free(clen); free(rets); free(rn); free(funcs); free(fnp); free(callsp); free(cnp); free(c); free(buf);
     return 0;

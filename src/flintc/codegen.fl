@@ -77,8 +77,10 @@ fn gen_addr(c: ^Ctx, n: ^Node) {
         return;
     }
     if k == 19 {
-        gen_addr(c, n.left);
-        let sid: i64 = struct_of_type(expr_type(c, n.left));
+        let lt: i64 = expr_type(c, n.left);
+        if lt >= 0x100 { if lt < 0x200 { gen_expr(c, n.left); } else { gen_addr(c, n.left); } }
+        else { gen_addr(c, n.left); }
+        let sid: i64 = struct_of_type(lt);
         if sid > 0 {
             let fi: i64 = field_find(c, sid, n.val);
             if fi >= 0 {
@@ -97,7 +99,12 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
     if n == 0 { eb(c, 0x31); eb(c, 0xC0); return; }
     let k: i64 = n.kind;
     if k == 12 {
-        eb(c, 0xB8); e32(c, n.val);
+        let v: i64 = n.val;
+        if v > 2147483647 {
+            eb(c, 0x48); eb(c, 0xB8); e32(c, v); e32(c, v / 4294967296);
+        } else {
+            eb(c, 0xB8); e32(c, v);
+        }
         return;
     }
     if k == 13 {
@@ -273,12 +280,37 @@ fn gen_fn(c: ^Ctx, f: ^Node) {
     eb(c, 0xC3);                                  // ret
 }
 
+fn builtin_find(c: ^Ctx, ti: i64) -> i64 {
+    let p: i64 = c.toks[ti].start;
+    let n: i64 = c.toks[ti].len;
+    let i: i64 = 0;
+    let s: i64 = 0;
+    while i < n { s += c.src[p + i]; i += 1; }
+    if n == 5 {
+        if s == 523 { return 0; }
+        if s == 557 { return 461; }
+    }
+    if n == 4 {
+        if s == 418 { return 43; }
+    }
+    if n == 9 {
+        if s == 971 { return 82; }
+    }
+    if n == 8 {
+        if s == 828 { return 269; }
+    }
+    return -1;
+}
+
 fn resolve_calls(c: ^Ctx) -> i64 {
     let i: i64 = 0;
     let bad: i64 = 0;
     while i < c.cn.* {
         let lbl: i64 = func_find(c, c.calls[i].name);
-        if lbl == 0 { bad += 1; }
+        if lbl == 0 { lbl = builtin_find(c, c.calls[i].name); }
+        if lbl < 0 {
+            bad += 1;
+        }
         else { patch(c, c.calls[i].disp, lbl); }
         i += 1;
     }
@@ -286,8 +318,12 @@ fn resolve_calls(c: ^Ctx) -> i64 {
 }
 
 fn gen_program(c: ^Ctx, prog: ^Node) -> i64 {
+    c.clen.* = 0;
+    emit_runtime(c);
+    c.entry = c.clen.*;
     let main_tok: i64 = find_main(c, prog);
     if main_tok < 0 { return 1; }
+    eb(c, 0x48); eb(c, 0x83); eb(c, 0xEC); eb(c, 0x28);
     eb(c, 0xE8);
     let entry_disp: i64 = c.clen.*;
     e32(c, 0);

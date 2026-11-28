@@ -10,7 +10,7 @@
 //   0x1A8 LC_UNIXTHREAD
 //   0x300 generated code
 //   0x2000 file size
-fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
+fn backend_macho(b: ^u8, code: ^u8, clen: i64, entry: i64) -> i64 {
     zero_bytes(b, 0x2000);
 
     put32(b, 0, 0xFEEDFACF); put32(b, 4, 0x01000007); put32(b, 8, 3); put32(b, 12, 2);
@@ -56,7 +56,7 @@ fn backend_macho(b: ^u8, code: ^u8, clen: i64) -> i64 {
     put32(b, 424, 0x5); put32(b, 428, 184);
     put32(b, 432, 4); put32(b, 436, 42);
     put64(b, 496, 0x100006000);   // rsp
-    put64(b, 568, 0x100000300);   // rip
+    put64(b, 568, 0x100000300 + entry);   // rip
     put64(b, 576, 0x202);         // rflags
     put64(b, 584, 0x2B);          // cs
 

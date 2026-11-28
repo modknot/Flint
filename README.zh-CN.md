@@ -30,11 +30,12 @@ build\flintc.exe
 build\flintc-pe.exe
 ```
 
-样例会生成 PE32+、ELF64、Mach-O 64 三个目标，打印 `6`；目标程序退出码为 `20`。
+自举模式会编译整个编译器源码并生成 PE32+、ELF64、Mach-O 64 三个目标；第二阶段与第三阶段编译器已做到逐字节相同（固定点）。
 
 ## 测试
 
 ```powershell
+pwsh -NoProfile -File bootstrap\bootstrap.ps1
 pwsh -NoProfile -File bootstrap\gate.ps1
 pwsh -NoProfile -File tests\run_p0.ps1
 pwsh -NoProfile -File tests\run_all.ps1

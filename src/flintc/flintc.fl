@@ -1,7 +1,7 @@
 // Flint compiler source root v0.4
-// One compiler, split into modules. The build scripts expand these directives
-// into build/flintc.unit.fl for the assembly seed; the compiler itself expands
-// them from stage 2 onward, relative to this file.
+// One compiler, split into modules. Normal builds use the compiler's built-in
+// include loader relative to this file. The assembly cold-start path uses the
+// PowerShell expander only when build/flintc.exe does not exist yet.
 // include: common.fl
 // include: source.fl
 // include: lexer.fl

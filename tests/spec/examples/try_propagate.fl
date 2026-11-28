@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE try_propagate
-// 期望: 42（try 在 err 时立即 return err(e)）
+// Expect: 42 (try immediately returns err(e) on error)
 fn fetch() -> Outcome[i64, i64] {
     return Outcome::ok(41);
 }

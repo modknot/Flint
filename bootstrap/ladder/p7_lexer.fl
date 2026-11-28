@@ -1,6 +1,6 @@
 // EXPECT stdout:255
 // EXPECT exit:0
-// 最小词法器骨架：扫描字节数组，切出标识符，写 Token 数组。
+// Minimal lexer skeleton: scan a byte array, split out identifiers, write the Token array.
 struct Token {
     kind: u8,
     start: i64,

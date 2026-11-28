@@ -1,8 +1,8 @@
 ; ===========================================================================
-; 文件读写（仅 kernel32；路径为 UTF-16，直接来自命令行）
+; File I/O (kernel32 only; paths are UTF-16, taken directly from the command line)
 ; ===========================================================================
 
-; file_read(rdi=lpcwstr path) -> rax=buf, rdx=len  （失败即 fatal）
+; file_read(rdi=lpcwstr path) -> rax=buf, rdx=len (fatal on failure)
 file_read:
     push rbp
     mov rbp, rsp
@@ -44,7 +44,7 @@ file_read:
     cmp rax, SRC_MAX
     jb .done_read
 
-    ; 恰好读满上限：再读 1 字节判断是否超限
+    ; Read exactly up to the limit: read 1 more byte to detect overflow
     mov rcx, [rbp - 24]
     lea rdx, [rel zero_buf]
     mov r8d, 1

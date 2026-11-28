@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE tuple
-// 期望: 7 / true
+// Expect: 7 / true
 fn main() -> i64 {
     let t: (i64, bool) = (7, true);
     print(t.0);

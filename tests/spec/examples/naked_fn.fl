@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE naked_fn
-// 期望: 编译通过；bare 函数只允许 asm/trap，无栈帧
+// Expect: compiles; a bare function allows only asm/trap and has no stack frame
 bare fn spin_hint() {
     asm volatile("pause");
 }

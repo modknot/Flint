@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE union_bitfield
-// 期望: 42 / true（联合体读活跃字段；位域按布尔访问）
+// Expect: 42 / true (union reads the active field; bitfields accessed as booleans)
 union Value {
     i: i64,
     f: f64,

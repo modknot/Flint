@@ -1,6 +1,7 @@
-// ---------------------- 源文件模块加载 ----------------------
-// 编译器自己展开 // include: 指令，不再依赖 PowerShell 预处理器。
-// 路径相对包含该指令的文件；递归深度上限 16。
+// ---------------------- source module loader ----------------------
+// The compiler expands // include: itself; it does not depend on the
+// PowerShell preprocessor. Paths are relative to the including file; the
+// recursion limit is 16.
 
 struct Loader {
     path: ^u8,
@@ -51,7 +52,8 @@ fn trim_line_end(src: ^u8, start: i64, end: i64) -> i64 {
     return i;
 }
 
-// 返回 include 文件名的起始下标；不是 include 行则返回 -1。
+// Returns the start index of the include file name; returns -1 when the line
+// is not an include directive.
 fn include_name_at(src: ^u8, n: i64, line: i64) -> i64 {
     if line > 0 {
         if src[line - 1] as i64 != 10 {

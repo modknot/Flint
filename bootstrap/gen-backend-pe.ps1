@@ -34,11 +34,11 @@ foreach ($im in $imports) {
 }
 
 $L = [System.Collections.Generic.List[string]]::new()
-$L.Add('// ------------------------------ PE32+ 后端 ------------------------------')
-$L.Add('// 输出节布局（括号内为文件偏移）：')
-$L.Add('//   0x0000 运行库；0x02AD 生成代码入口；0x2F000（0x2F200）IAT')
-$L.Add('//   0x2F050（0x2F250）ILT；0x2F0B0（0x2F2B0）导入描述符')
-$L.Add('//   0x2F130（0x2F330）DLL 名；0x2F170（0x2F370）hint/name 表')
+$L.Add('// ------------------------------ PE32+ backend ------------------------------')
+$L.Add('// Output section layout (file offsets in parentheses):')
+$L.Add('//   0x0000 runtime; 0x02AD generated-code entry; 0x2F000 (0x2F200) IAT')
+$L.Add('//   0x2F050 (0x2F250) ILT; 0x2F0B0 (0x2F2B0) import descriptors')
+$L.Add('//   0x2F130 (0x2F330) DLL name; 0x2F170 (0x2F370) hint/name table')
 $L.Add('fn backend_pe(b: ^u8, code: ^u8, clen: i64, entry: i64) -> i64 {')
 $L.Add('    zero_bytes(b, 0x30200);')
 $L.Add('    put16(b, 0, 0x5A4D); put32(b, 0x3C, 0x40); put32(b, 0x40, 0x00004550);')
@@ -60,7 +60,7 @@ $L.Add('    put8(b, off, 0x89); put8(b, off + 1, 0xC1);')
 $L.Add('    put8(b, off + 2, 0xFF); put8(b, off + 3, 0x15); put32(b, off + 4, 0x2F030 - clen);')
 $L.Add('    put8(b, off + 8, 0x31); put8(b, off + 9, 0xC0);')
 $L.Add('')
-$L.Add('    // IAT 与 ILT 各 8 项，末尾必须有一个 0 qword 终止。')
+$L.Add('    // Each IAT and ILT entry maps one import; both tables end with a zero qword.')
 for ($i=0; $i -lt $iatCount; $i++) {
     $target = 0x1000 + $hintOffsets[$i]
     $L.Add(('    put64(b, 0x{0:X}, 0x{1:X});' -f (0x200 + $iatBase + $i*8), $target))
@@ -71,12 +71,12 @@ for ($i=0; $i -lt $iatCount; $i++) {
     $L.Add(('    put64(b, 0x{0:X}, 0x{1:X});' -f (0x200 + $iltBase + $i*8), $target))
 }
 $L.Add(('    put64(b, 0x{0:X}, 0);' -f (0x200 + $iltBase + $iatCount*8)))
-$L.Add('    // 导入描述符：OriginalFirstThunk、TimeDateStamp、ForwarderChain、Name、FirstThunk。')
+$L.Add('    // Import descriptor: OriginalFirstThunk, TimeDateStamp, ForwarderChain, Name, FirstThunk.')
 $L.Add(('    put32(b, 0x{0:X}, 0x{1:X}); put32(b, 0x{2:X}, 0); put32(b, 0x{3:X}, 0);' -f (0x200+$descBase), (0x1000+$iltBase), (0x200+$descBase+4), (0x200+$descBase+8)))
 $L.Add(('    put32(b, 0x{0:X}, 0x{1:X}); put32(b, 0x{2:X}, 0x{3:X});' -f (0x200+$descBase+0xC), (0x1000+$dllBase), (0x200+$descBase+0x10), (0x1000+$iatBase)))
-$L.Add('    // 结束描述符为 20 字节零，已由 zero_bytes 保证。')
+$L.Add('    // The terminating descriptor is 20 zero bytes, guaranteed by zero_bytes.')
 $L.Add('')
-$L.Add('    // DLL 名。')
+$L.Add('    // DLL name.')
 $dllPos = 0
 foreach ($ch in [Text.Encoding]::ASCII.GetBytes('KERNEL32.dll')) {
     $L.Add(('    put8(b, 0x{0:X}, {1});' -f (0x200+$dllBase+$dllPos), $ch))
@@ -84,7 +84,7 @@ foreach ($ch in [Text.Encoding]::ASCII.GetBytes('KERNEL32.dll')) {
 }
 $L.Add(('    put8(b, 0x{0:X}, 0);' -f (0x200+$dllBase+$dllPos)))
 $L.Add('')
-$L.Add('    // hint/name：hint=0，随后是名字和 NUL。')
+$L.Add('    // hint/name: hint=0, followed by the name and NUL.')
 for ($i=0; $i -lt $imports.Count; $i++) {
     $im = $imports[$i]
     $base = 0x200 + $hintOffsets[$i]

@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE goto_state
-// 期望: 3（label 块内 goto 回跳，规则见 §7）
+// Expect: 3 (goto jumps back inside a label block; rules in section 7)
 fn main() -> i64 {
     let i: i64 = 0;
     label again {

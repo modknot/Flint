@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE ptr_arith
-// 期望: 30（p+2 指向 buf[2]，单位是元素）
+// Expect: 30 (p+2 points to buf[2], in element units)
 fn main() -> i64 {
     let buf: [i64; 4] = [10, 20, 30, 40];
     let p: ^i64 = ^buf[0];

@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE export_c
-// 期望: 编译通过；生成可被 C 调用的符号
+// Expect: compiles; emits a symbol callable from C
 pub extern "C" fn flint_add(a: i32, b: i32) -> i32 {
     return a + b;
 }

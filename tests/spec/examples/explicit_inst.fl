@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE explicit_inst
-// 期望: 7 / x（同一泛型按不同类型两次单态化）
+// Expect: 7 / x (same generic monomorphized twice at different types)
 fn id[T](x: T) -> T { return x; }
 
 fn main() -> i64 {

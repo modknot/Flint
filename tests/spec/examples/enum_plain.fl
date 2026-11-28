@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE enum_plain
-// 期望: 1
+// Expect: 1
 enum Color {
     Red,
     Green,

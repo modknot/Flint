@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE while_loop
-// 期望: 10（0+1+2+3+4）
+// Expect: 10 (0+1+2+3+4)
 fn main() -> i64 {
     let i: i64 = 0;
     let sum: i64 = 0;

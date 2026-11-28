@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE hello_print
-// 期望: stdout "hello"；退出码 0
+// Expect: stdout "hello"; exit code 0
 fn main() -> i64 {
     print("hello");
     return 0;

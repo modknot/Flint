@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE match_guard
-// 期望: 4 / 3 / 0
+// Expect: 4 / 3 / 0
 fn grade(n: i64) -> i64 {
     return match n {
         x if x >= 90 => 4,

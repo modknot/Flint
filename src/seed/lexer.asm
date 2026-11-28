@@ -1,11 +1,12 @@
 ; ===========================================================================
-; 词法分析器（阶段 0）
-; 支持：ASCII 标识符、十进制/0x/0b 整数字面量（允许 _ 分隔）、
-;       行注释 //、嵌套块注释 /* */、单字符运算符与 ->。
-; 每个 Token 记录 行/列/字节区间；错误就地恢复，不中断扫描。
+; Lexer (stage 0)
+; Supports: ASCII identifiers, decimal/0x/0b integer literals (with _ separators),
+; line comments //, nested block comments /* */, single-character operators and ->.
+; Each Token records line/column/byte range; errors recover in place without
+; aborting the scan.
 ; ===========================================================================
 
-; tok_emit(eax=kind, rsi=start, rdx=end, rcx=ival) —— 行/列取 cur_line/cur_col
+; tok_emit(eax=kind, rsi=start, rdx=end, rcx=ival) -- line/column come from cur_line/cur_col
 tok_emit:
     mov rdi, [rel tk_count]
     imul rdi, rdi, TK_SIZE
@@ -22,7 +23,7 @@ tok_emit:
     inc qword [rel tk_count]
     ret
 
-; ------------------------------ 跳过空白/注释 ------------------------------
+; ------------------------------ skip whitespace/comments ----------------------
 lex_skip_ws:
     push rbp
     mov rbp, rsp
@@ -90,14 +91,15 @@ lex_skip_ws:
     inc dword [rel lex_col]
     jmp .lc_loop
 .lc_nl:
-    ; 行注释把行尾换行一并吃掉，然后回到跳过循环，避免下一行注释被当成标点
+    ; A line comment consumes the trailing newline, then returns to the skip loop
+; so the next line's comment is not mistaken for punctuation
     inc qword [rel lex_pos]
     mov dword [rel lex_col], 1
     inc dword [rel lex_line]
     jmp .loop
 
 .block_comment:
-    mov r8, [rel lex_pos]              ; 起始偏移（错误定位）
+    mov r8, [rel lex_pos]              ; start offset (for error location)
     mov r9d, [rel lex_line]
     mov r10d, [rel lex_col]
     add qword [rel lex_pos], 2
@@ -131,7 +133,7 @@ lex_skip_ws:
     jne .bc_loop
     jmp .loop
 .bc_single:
-    ; 单字节推进（处理换行 / Tab）
+    ; advance one byte (handles newline / Tab)
     mov rsi, [rel src_ptr]
     mov rax, [rel lex_pos]
     movzx ecx, byte [rsi + rax]
@@ -159,7 +161,7 @@ lex_skip_ws:
     jmp .bc_loop
 .bc_unterminated:
     mov rax, [rel src_len]
-    mov [rel lex_pos], rax             ; 直接到达 EOF，避免二次误报
+    mov [rel lex_pos], rax             ; jump straight to EOF to avoid a second false report
     mov rdi, r8
     mov rsi, r9
     mov rdx, r10
@@ -171,8 +173,8 @@ lex_skip_ws:
     pop rbp
     ret
 
-; ------------------------------ 主扫描 ------------------------------------
-; lex_run(rdi=src, rsi=len) -> rax=token 数组, rdx=token 数
+; ------------------------------ main scan ---------------------------------
+; lex_run(rdi=src, rsi=len) -> rax=token array, rdx=token count
 lex_run:
     push rbp
     mov rbp, rsp
@@ -205,7 +207,7 @@ lex_run:
     mov rsi, [rel src_ptr]
     movzx ecx, byte [rsi + rax]
 
-    ; 标识符
+    ; identifier
     cmp cl, 'A'
     jb .try_lower
     cmp cl, 'Z'
@@ -230,7 +232,7 @@ lex_run:
     je .char
     jmp .punct
 
-; ------------------------------ 标识符 ------------------------------------
+; ------------------------------ identifiers --------------------------------
 .ident:
     mov r8, [rel lex_pos]
 .scan:
@@ -265,7 +267,7 @@ lex_run:
     add rsi, r8
     mov rcx, [rel lex_pos]
     sub rcx, r8
-    ; 关键字表（按长度分派，再逐字节比较）
+    ; keyword table (dispatch by length, then compare byte by byte)
     cmp rcx, 2
     jne .kw_len3
     cmp byte [rsi], 'f'
@@ -368,7 +370,7 @@ lex_run:
     call tok_emit
     jmp .loop
 
-; ------------------------------ 数字 --------------------------------------
+; ------------------------------ numbers ------------------------------------
 .number:
     mov r8, [rel lex_pos]
     mov rsi, [rel src_ptr]
@@ -402,7 +404,7 @@ lex_run:
 
 .num_start:
     mov qword [rbp - 8], 0             ; acc
-    xor r10d, r10d                     ; 数字计数
+    xor r10d, r10d                     ; digit count
 .num_loop:
     mov rax, [rel lex_pos]
     cmp rax, [rel src_len]
@@ -415,7 +417,7 @@ lex_run:
     je .hex_digit
     cmp r11, 2
     je .bin_digit
-    ; 十进制
+    ; decimal
     cmp cl, '0'
     jb .num_end
     cmp cl, '9'
@@ -495,7 +497,7 @@ lex_run:
     lea rcx, [rel m_int_overflow]
     mov r8d, m_int_overflow_len
     call diag_at
-    ; 跳过剩余数字字符
+    ; skip remaining digit characters
 .ov_skip:
     mov rax, [rel lex_pos]
     cmp rax, [rel src_len]
@@ -525,9 +527,9 @@ lex_run:
     ja .loop
     jmp .ov_adv
 
-; ------------------------------ 字符串（暂不支持）-------------------------
-; ------------------------------ 字符字面量 --------------------------------
-; 形如 'a'、'\n'；值写入 TK_IVAL，类型 TK_CHAR
+; ------------------------------ strings (not supported yet) -----------------
+; ------------------------------ character literals -------------------------
+; Forms such as 'a', '\n'; value goes to TK_IVAL and type is TK_CHAR
 .char:
     mov r8, [rel lex_pos]
     lea rax, [r8 + 1]
@@ -537,7 +539,7 @@ lex_run:
     movzx ecx, byte [rdx + rax]
     mov r9, rcx
     lea r11, [r8 + 2]
-    cmp cl, 92                          ; 反斜杠
+    cmp cl, 92                          ; backslash
     jne .char_check
     lea rax, [r8 + 2]
     cmp rax, [rel src_len]
@@ -551,7 +553,7 @@ lex_run:
     je .esc_r
     cmp cl, '0'
     je .esc_0
-    mov r9, rcx                         ; '\\'、'\'' 等原样取值
+    mov r9, rcx                         ; take '\\', '\'' etc. literally
     jmp .char_esc_done
 .esc_n:
     mov r9d, 10
@@ -587,7 +589,7 @@ lex_run:
     call tok_emit
     jmp .loop
 .char_err:
-    mov [rbp - 16], r8                  ; diag_at 会破坏易失寄存器
+    mov [rbp - 16], r8                  ; diag_at clobbers volatile registers
     mov rdi, r8
     mov esi, [rel lex_line]
     mov edx, [rel lex_col]
@@ -634,7 +636,7 @@ lex_run:
     inc dword [rel lex_col]
     jmp .loop
 
-; ------------------------------ 标点 --------------------------------------
+; ------------------------------ punctuation --------------------------------
 .punct:
     mov r8, [rel lex_pos]
     mov rsi, r8
@@ -684,7 +686,7 @@ lex_run:
     je .p_dot
     jmp .bad
 .p_dot:
-    ; '.' 或 '.*'（指针解引用后缀）
+    ; '.' or '.*' (pointer dereference suffix)
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .p_dot1
@@ -720,7 +722,7 @@ lex_run:
     mov eax, TK_SEMI
     jmp .p_emit1
 .p_plus:
-    ; '+' 或 '+='
+    ; '+' or '+='
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .p_plus1
@@ -744,7 +746,7 @@ lex_run:
     mov eax, TK_PERCENT
     jmp .p_emit1
 .p_eq:
-    ; '=' 或 '=='
+    ; '=' or '=='
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .p_assign
@@ -759,7 +761,7 @@ lex_run:
     mov eax, TK_ASSIGN
     jmp .p_emit1
 .p_lt:
-    ; '<' 或 '<='
+    ; '<' or '<='
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .p_lt1
@@ -774,7 +776,7 @@ lex_run:
     mov eax, TK_LT
     jmp .p_emit1
 .p_gt:
-    ; '>' 或 '>='
+    ; '>' or '>='
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .p_gt1
@@ -789,7 +791,7 @@ lex_run:
     mov eax, TK_GT
     jmp .p_emit1
 .p_bang:
-    ; 仅支持 '!='
+    ; only '!=' is supported
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .bad
@@ -810,7 +812,7 @@ lex_run:
     mov eax, TK_CARET
     jmp .p_emit1
 .p_minus:
-    ; '-' 或 '->'
+    ; '-' or '->'
     lea rax, [r8 + 1]
     cmp rax, [rel src_len]
     jae .p_minus_plain

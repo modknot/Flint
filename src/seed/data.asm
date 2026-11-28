@@ -1,6 +1,6 @@
 ; ===========================================================================
-; 种子编译器运行时数据区（位于 .text 节内，节属性 RWX，阶段 0 简化）
-; 导入表由 loader 回填 IAT；所有内部引用均为 RIP 相对，无重定位项。
+; Seed compiler runtime data (inside .text, which is RWX in stage 0 for simplicity).
+; The loader fills the IAT; all internal references are RIP-relative, with no relocations.
 ; ===========================================================================
 
 %macro MSG 2
@@ -28,9 +28,9 @@ __imp_VirtualAlloc:        dq hint_VirtualAlloc        - sec_start + SEC_RVA
 __imp_GetLastError:        dq hint_GetLastError        - sec_start + SEC_RVA
                            dq 0
 
-; --------------------------- 导入描述符 -----------------------------------
+; --------------------------- import descriptor -----------------------------
 imp_desc:
-    dd 0                                        ; OriginalFirstThunk = 0（IAT 兼作查找表）
+    dd 0                                        ; OriginalFirstThunk = 0 (IAT doubles as the lookup table)
     dd 0                                        ; TimeDateStamp
     dd 0                                        ; ForwarderChain
     dd dll_kernel32 - sec_start + SEC_RVA       ; Name RVA
@@ -81,7 +81,7 @@ hint_GetLastError:
 imp_rva     equ imp_desc - sec_start + SEC_RVA
 imp_size    equ 40
 
-; --------------------------- 运行时全局 ------------------------------------
+; --------------------------- runtime globals -------------------------------
 align 8
 h_stdout:       dq 0
 old_cp:         dd 0
@@ -148,15 +148,15 @@ cur_fn:         dq 0
 diag_name_ptr:  dq 0
 diag_name_len:  dq 0
 
-; --------------------------- 优先级表 --------------------------------------
-; 索引 = Token kind；值为左结合优先级（0 表示非二元运算符）
+; --------------------------- precedence table -----------------------------
+; Index = Token kind; value = left-associative precedence (0 means not a binary operator).
 prec_table:
     db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,10,20,20,20,0
     db 0,0,0,5,5,5,5,5,5,0,0
     db 0,0,0,0,0,0,0,0,0
 
-; --------------------------- Token 名称表 ----------------------------------
-; 表项为相对 tk_names 的 32 位偏移（PE 无重定位，不能存绝对地址）
+; --------------------------- token name table ------------------------------
+; Entries are 32-bit offsets relative to tk_names (PE has no relocations, so absolute addresses cannot be stored).
 tk_names:
     dd n_eof - tk_names, n_ident - tk_names, n_int - tk_names
     dd n_kwfn - tk_names, n_kwlet - tk_names, n_kwreturn - tk_names
@@ -223,7 +223,7 @@ s_u8:   db "u8", 0
 s_alloc: db "alloc", 0
 s_free:  db "free", 0
 
-; --------------------------- 静态缓冲 --------------------------------------
+; --------------------------- static buffers --------------------------------
 align 16
 cmd_w:       times 4096*2 db 0
 arg_buf:     times 4096*2 db 0
@@ -232,7 +232,7 @@ numbuf:      times 64     db 0
 hdr_buf:     times HDR_SIZE db 0
 zero_buf:    times 512    db 0
 
-; --------------------------- 诊断文本 --------------------------------------
+; --------------------------- diagnostic text ------------------------------
 MSG m_oom,                 "内存分配失败"
 MSG m_src_too_large,       "源文件超过 8 MiB 上限"
 MSG m_read_fail,         "读取输入文件失败"
@@ -276,7 +276,7 @@ MSG m_expect_fn,           "期望 fn 定义"
 MSG m_bad_number,          "数字字面量缺少有效数字"
 MSG m_expect_assign,       "期望 '='"
 
-; --------------------------- 固定文本 --------------------------------------
+; --------------------------- fixed text ------------------------------------
 s_bar:          db " | ", 0
 s_ellipsis:     db " ...", 0
 s_err_prefix:   db ": error: ", 0

@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE generic_fn
-// 期望: 9（单态化为 i64）
+// Expect: 9 (monomorphized to i64)
 fn max[T](a: T, b: T) -> T {
     if a > b { return a; }
     return b;

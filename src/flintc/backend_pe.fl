@@ -1,8 +1,8 @@
-// ------------------------------ PE32+ 后端 ------------------------------
-// 输出节布局（括号内为文件偏移）：
-//   0x0000 运行库；0x02AD 生成代码入口；0x2F000（0x2F200）IAT
-//   0x2F050（0x2F250）ILT；0x2F0B0（0x2F2B0）导入描述符
-//   0x2F130（0x2F330）DLL 名；0x2F170（0x2F370）hint/name 表
+// ------------------------------ PE32+ backend ------------------------------
+// Output section layout (file offsets in parentheses):
+//   0x0000 runtime; 0x02AD generated-code entry; 0x2F000 (0x2F200) IAT
+//   0x2F050 (0x2F250) ILT; 0x2F0B0 (0x2F2B0) import descriptors
+//   0x2F130 (0x2F330) DLL name; 0x2F170 (0x2F370) hint/name table
 fn backend_pe(b: ^u8, code: ^u8, clen: i64, entry: i64) -> i64 {
     zero_bytes(b, 0x30200);
     put16(b, 0, 0x5A4D); put32(b, 0x3C, 0x40); put32(b, 0x40, 0x00004550);
@@ -24,7 +24,7 @@ fn backend_pe(b: ^u8, code: ^u8, clen: i64, entry: i64) -> i64 {
     put8(b, off + 2, 0xFF); put8(b, off + 3, 0x15); put32(b, off + 4, 0x2F030 - clen);
     put8(b, off + 8, 0x31); put8(b, off + 9, 0xC0);
 
-    // IAT 与 ILT 各 8 项，末尾必须有一个 0 qword 终止。
+    // Each IAT and ILT entry maps one import; both tables end with a zero qword.
     put64(b, 0x2F200, 0x30170);
     put64(b, 0x2F208, 0x30180);
     put64(b, 0x2F210, 0x3018E);
@@ -45,12 +45,12 @@ fn backend_pe(b: ^u8, code: ^u8, clen: i64, entry: i64) -> i64 {
     put64(b, 0x2F288, 0x301D2);
     put64(b, 0x2F290, 0x301E0);
     put64(b, 0x2F298, 0);
-    // 导入描述符：OriginalFirstThunk、TimeDateStamp、ForwarderChain、Name、FirstThunk。
+    // Import descriptor: OriginalFirstThunk, TimeDateStamp, ForwarderChain, Name, FirstThunk.
     put32(b, 0x2F2B0, 0x30050); put32(b, 0x2F2B4, 0); put32(b, 0x2F2B8, 0);
     put32(b, 0x2F2BC, 0x30130); put32(b, 0x2F2C0, 0x30000);
-    // 结束描述符为 20 字节零，已由 zero_bytes 保证。
+    // The terminating descriptor is 20 zero bytes, guaranteed by zero_bytes.
 
-    // DLL 名。
+    // DLL name.
     put8(b, 0x2F330, 75);
     put8(b, 0x2F331, 69);
     put8(b, 0x2F332, 82);
@@ -65,7 +65,7 @@ fn backend_pe(b: ^u8, code: ^u8, clen: i64, entry: i64) -> i64 {
     put8(b, 0x2F33B, 108);
     put8(b, 0x2F33C, 0);
 
-    // hint/name：hint=0，随后是名字和 NUL。
+    // hint/name: hint=0, followed by the name and NUL.
     put8(b, 0x2F370, 0); put8(b, 0x2F371, 0);
     put8(b, 0x2F372, 86);
     put8(b, 0x2F373, 105);

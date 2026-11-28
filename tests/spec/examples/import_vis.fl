@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE import_vis
-// 期望: 编译通过；同目录命名空间 util，模块 math 导出 pub fn gcd
+// Expect: compiles; namespace util in the same directory, module math exports pub fn gcd
 import util::math as m;
 
 fn main() -> i64 {

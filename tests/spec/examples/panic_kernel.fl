@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE panic_kernel
-// 期望: 1（panic 路径不执行，仅示意 fatal 返回 !）
+// Expect: 1 (panic path not executed; fatal returns ! for illustration only)
 fn fatal(msg: str) -> ! {
     panic(msg);
 }

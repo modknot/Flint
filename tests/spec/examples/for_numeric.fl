@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE for_numeric
-// 期望: 30（0..5 求和 10，0..10 step 2 求和 20）
+// Expect: 30 (0..5 sums to 10, 0..10 step 2 sums to 20)
 fn main() -> i64 {
     let s: i64 = 0;
     for i in 0..5 { s += i; }

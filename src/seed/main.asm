@@ -1,5 +1,5 @@
 ; ===========================================================================
-; 入口 / 命令行 / 模式分发
+; entry / command line / mode dispatch
 ; ===========================================================================
 
 ; wstreq(rdi=utf16 str, rsi=ascii cstr) -> al=1/0
@@ -30,7 +30,7 @@ wstreq:
     pop rbp
     ret
 
-; w2u8(rdi=utf16, rsi=outbuf, edx=cap) -> rax=字节长度（0 表示失败）
+; w2u8(rdi=utf16, rsi=outbuf, edx=cap) -> rax=byte length (0 means failure)
 w2u8:
     push rbp
     mov rbp, rsp
@@ -61,7 +61,8 @@ w2u8:
     pop rbp
     ret
 
-; cmd_tokenize: 把 cmd_w 切成 UTF-16 参数，写入 arg_buf，args[] 指向各段
+; cmd_tokenize: split cmd_w into UTF-16 arguments, write them to arg_buf, and
+; point args[] at each segment
 cmd_tokenize:
     push rbp
     mov rbp, rsp
@@ -85,7 +86,7 @@ cmd_tokenize:
     jnz .store
     test r8d, r8d
     jnz .store
-    ; 新 Token 起点
+    ; start of a new token
     mov ecx, [rel argc]
     cmp ecx, 8
     jae .store
@@ -99,7 +100,8 @@ cmd_tokenize:
     add rsi, 2
     jmp .loop
 .quote:
-    ; 引号本身不入 token；若当前不在 token 中，则引号处开启新 token
+    ; Quotes themselves are not tokens; when not already inside a token, the quote
+; starts a new token
     test r8d, r8d
     jnz .q_toggle
     mov ecx, [rel argc]
@@ -193,13 +195,13 @@ dump_tokens:
     pop rbp
     ret
 
-; ------------------------------ 编译流程 ----------------------------------
+; ------------------------------ compile pipeline --------------------------
 do_compile:
     push rbp
     mov rbp, rsp
     sub rsp, 0x60
 
-    ; 输入路径 -> UTF-8（诊断用）
+    ; input path -> UTF-8 (for diagnostics)
     mov rdi, [rel args + 8]
     lea rsi, [rel path8]
     mov edx, 2048
@@ -208,13 +210,13 @@ do_compile:
     mov [rel path8_ptr], rdx
     mov [rel path8_len], rax
 
-    ; 读取源码
+    ; read source
     mov rdi, [rel args + 8]
     call file_read
     mov [rel src_ptr], rax
     mov [rel src_len], rdx
 
-    ; 词法
+    ; lexing
     mov rdi, rax
     mov rsi, rdx
     call lex_run
@@ -225,7 +227,7 @@ do_compile:
     cmp dword [rel err_count], 0
     jne .fail
 
-    ; 语法
+    ; parsing
     mov rdi, [rbp - 8]
     mov rsi, [rbp - 16]
     call parse_run
@@ -234,13 +236,13 @@ do_compile:
     cmp dword [rel err_count], 0
     jne .fail
 
-    ; 语义 + 代码生成
+    ; semantic checks + code generation
     mov rdi, [rbp - 24]
     call cg_run
     cmp dword [rel err_count], 0
     jne .fail
 
-    ; 写出 PE
+    ; write PE output
     mov rdi, [rel args + 16]
     call pe_write
     test eax, eax
@@ -265,7 +267,7 @@ do_compile:
     mov edi, 1
     call exit_now
 
-; ------------------------------ 入口 --------------------------------------
+; ------------------------------ entry -------------------------------------
 start_here:
     push rbp
     mov rbp, rsp
@@ -358,7 +360,7 @@ start_here:
     xor edi, edi
     call exit_now
 
-; ------------------------------ 数据 --------------------------------------
+; ------------------------------ data --------------------------------------
 s_opt_version:  db "--version", 0
 s_opt_tokens:   db "--tokens", 0
 s_ok:           db "flint: 编译成功，tokens=", 0

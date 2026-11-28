@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE operator_add
-// 期望: 4（operator + 只允许固定集合，优先级不可改）
+// Expect: 4 (operator + accepts only a fixed set; precedence cannot change)
 struct Vec2 { x: i64, y: i64 }
 
 impl Vec2 {

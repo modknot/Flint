@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE alloc_free
-// 期望: 42（显式 alloc/free，无 RAII）
+// Expect: 42 (explicit alloc/free, no RAII)
 fn main() -> i64 {
     let p: ^i64 = alloc(8, 8) as ^i64;
     p.* = 42;

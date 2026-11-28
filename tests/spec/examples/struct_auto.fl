@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE struct_auto
-// 期望: 7（auto 布局，字段可重排）
+// Expect: 7 (auto layout; fields may be reordered)
 struct Point {
     x: i64,
     y: i64,

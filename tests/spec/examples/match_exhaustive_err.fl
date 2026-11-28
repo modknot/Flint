@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE match_exhaustive_err
-// 期望: 编译错误 E4022（缺少 Color::Blue），诊断列出缺失模式
+// Expect: compile error E4022 (missing Color::Blue), diagnostics list the missing pattern
 enum Color { Red, Green, Blue }
 
 fn f(c: Color) -> i64 {

@@ -1,236 +1,236 @@
-# 错误分类清单 · 阶段一交付物之二
+# Error Taxonomy · Stage One Deliverable II
 
-规范：每个错误有稳定编号 `E<三/四位>`，一经发布不复用、不改变含义；废弃编号保留并标注“已废弃”。
-消息模板中的 `{name}`、`{type}`、`{path}` 为占位符；**错误消息正文用中文，编号与英文关键词稳定**，便于工具解析。
+Rule: every error has a stable `E<three/four digits>` code. A published code is never reused and never changes meaning; retired codes are kept and marked deprecated.
+Placeholders in message templates are `{name}`, `{type}`, and `{path}`. Message bodies may be localized; codes and English keywords are stable for tooling.
 
-位置要求：`file:line:col` 必须精确到触发字符；涉及名字的错误附定义位置 `参见:`；泛型错误附实例链。
+Location rule: `file:line:col` must point at the triggering character. Name-related errors also report the definition location; generic errors include the full instantiation chain.
 
 ---
 
-## 编号段
+## Number ranges
 
-| 段 | 归属 | 阶段 |
+| Range | Area | Stage |
 | --- | --- | --- |
-| E1xxx | 词法 | 阶段二 |
-| E2xxx | 语法 | 阶段三 |
-| E3xxx | 名字/作用域/模块 | 阶段四 |
-| E4xxx | 类型/转换/错误处理/FFI 类型 | 阶段四 |
-| E5xxx | 泛型/模式匹配/常量求值 | 阶段四/五 |
-| E6xxx | IR/优化/指令编码/汇编器 | 阶段五/六/八 |
-| E7xxx | 链接/PE/ELF/重定位/调试信息 | 阶段七/九 |
-| E8xxx | 运行时（panic/检查/分配器/栈保护） | 阶段八起 |
-| E9xxx | 驱动/CLI/文件/IO/配置 | 阶段零起 |
-| Wxxxx | 提示（可升为错误） | 全程 |
+| E1xxx | Lexing | Stage 2 |
+| E2xxx | Parsing | Stage 3 |
+| E3xxx | Names / scope / modules | Stage 4 |
+| E4xxx | Types / conversions / error handling / FFI types | Stage 4 |
+| E5xxx | Generics / pattern matching / constant evaluation | Stage 4/5 |
+| E6xxx | IR / optimization / instruction encoding / assembler | Stage 5/6/8 |
+| E7xxx | Linking / PE / ELF / relocations / debug info | Stage 7/9 |
+| E8xxx | Runtime (panic / checks / allocator / stack guard) | Stage 8+ |
+| E9xxx | Driver / CLI / files / IO / configuration | Stage 0+ |
+| Wxxxx | Warnings (can be promoted to errors) | Always |
 
-恢复策略列：`skip1`（跳过 1 字节）、`to-eof`、`to-stmt`（到 `;`/`}`/`fn`）、`to-param`（到 `,`/`)`/`{`）、`to-typeargs`（到 `]`）、`to-item`（下一 `fn`/顶层）。
-`fatal` 表示不可恢复（环境/资源类），直接终止并返回退出码。
+Recovery strategies: `skip1` skips one byte; `to-eof` advances to end of file; `to-stmt` advances to `;`, `}`, or `fn`; `to-param` advances to `,`, `)`, or `{`; `to-typeargs` advances to `]`; `to-item` advances to the next `fn` or top-level item.
+`fatal` means unrecoverable (environment or resource failure): terminate immediately with the exit code.
 
 ---
 
-## 词法（E1xxx）
+## Lexing (E1xxx)
 
-| 编号 | 消息模板 | 触发 | 恢复 |
+| Code | Message template | Trigger | Recovery |
 | --- | --- | --- | --- |
-| E1001 | 无效字符 `{ch}` | 不在任何 Token 起始集合 | skip1 |
-| E1002 | 字符串字面量未闭合 | 到行尾/EOF 未见结束引号 | to-eof |
-| E1003 | 块注释未闭合（起始于 {line}:{col}） | 深度计数未归零 | to-eof |
-| E1004 | 整数字面量超出 {type} 范围（值 {text}） | 累加溢出或后缀范围检查 | 跳过剩余数字 |
-| E1005 | 数字字面量缺少有效数字 | `0x`/`0b` 后无数字 | skip1 |
-| E1006 | 非法下划线位置（连续 `__` 或首尾 `_`） | 字面量分隔规则 | 继续 |
-| E1007 | 未知转义序列 `\{ch}` | 字符串/字符转义表外 | 继续 |
-| E1008 | 字符字面量必须恰好 1 个标量 | 空/多码位 | skip1 |
-| E1009 | 非 UTF-8 字节序列 | 源文件解码失败 | to-eof |
-| E1010 | 标识符归一化冲突：`{a}` 与 `{b}` 视为同名 | NFC 归一后相同 | 继续 |
+| E1001 | invalid character `{ch}` | not in any token start set | skip1 |
+| E1002 | unterminated string literal | end of line or EOF before closing quote | to-eof |
+| E1003 | unterminated block comment (started at {line}:{col}) | depth never returns to zero | to-eof |
+| E1004 | integer literal out of range for {type} (value {text}) | accumulation overflow or suffix range check | skip remaining digits |
+| E1005 | numeric literal has no valid digits | no digit after `0x` or `0b` | skip1 |
+| E1006 | illegal underscore position (consecutive `__` or leading/trailing `_`) | literal separator rules | continue |
+| E1007 | unknown escape sequence `\{ch}` | not in the string/character escape table | continue |
+| E1008 | character literal must contain exactly one scalar | empty or multiple code points | skip1 |
+| E1009 | invalid UTF-8 byte sequence | source decoding failure | to-eof |
+| E1010 | identifier normalization collision: `{a}` and `{b}` are the same name | identical after NFC normalization | continue |
 
-## 语法（E2xxx）
+## Parsing (E2xxx)
 
-| 编号 | 消息模板 | 触发 | 恢复 |
+| Code | Message template | Trigger | Recovery |
 | --- | --- | --- | --- |
-| E2001 | 期望 `{expected}`，实际 `{actual}` | 通用 expect 失败 | 按上下文 |
-| E2002 | 期望标识符 | 声明位置非 ident | to-stmt |
-| E2003 | 期望类型 | `:` 后非类型起始 | to-stmt |
-| E2004 | 期望 `->` 返回类型或 `{` | 函数头 | to-item |
-| E2005 | 表达式缺少操作数 | 前缀位置遇到运算符/结束符 | to-stmt |
-| E2006 | 负数不能直接跟随 `..`（用括号） | `a..-1` 歧义 | to-stmt |
-| E2007 | 泛型实参未闭合 `]` | `::[` 后 | to-typeargs |
-| E2008 | 此处不允许 `.*`（解引用需指针） | 语法位置误用 | to-stmt |
-| E2009 | `match` 分支缺少 `=>` | arm 解析 | to-stmt |
-| E2010 | 语句后缺少 `;` | 表达式语句/let/return | to-stmt |
-| E2011 | `if` 条件缺少块 `{` | 条件后非 `{` | to-stmt |
-| E2012 | 意外的顶层项 `{tok}` | 顶层非 item 起始 | to-item |
-| E2013 | `label` 后必须跟块 | label 语句 | to-stmt |
-| E2014 | `onexit` 后必须跟块 | onexit | to-stmt |
-| E2015 | `break`/`continue` 标签必须是标识符 | 非 ident | to-stmt |
+| E2001 | expected `{expected}`, found `{actual}` | generic expect failure | context-dependent |
+| E2002 | expected identifier | declaration position is not an identifier | to-stmt |
+| E2003 | expected type | token after `:` is not a type start | to-stmt |
+| E2004 | expected `->` return type or `{` | function header | to-item |
+| E2005 | expression missing operand | operator or terminator in prefix position | to-stmt |
+| E2006 | negative number cannot directly follow `..` (use parentheses) | ambiguous `a..-1` | to-stmt |
+| E2007 | generic argument list missing `]` | after `::[` | to-typeargs |
+| E2008 | `.*` is not allowed here (dereference requires a pointer) | syntactic misuse | to-stmt |
+| E2009 | `match` arm missing `=>` | arm parsing | to-stmt |
+| E2010 | missing `;` after statement | expression statement / let / return | to-stmt |
+| E2011 | `if` condition missing block `{` | non-`{` after condition | to-stmt |
+| E2012 | unexpected top-level item `{tok}` | top level is not an item start | to-item |
+| E2013 | `label` must be followed by a block | label statement | to-stmt |
+| E2014 | `onexit` must be followed by a block | onexit | to-stmt |
+| E2015 | `break`/`continue` label must be an identifier | non-identifier | to-stmt |
 
-## 名字 / 作用域 / 模块（E3xxx）
+## Names / scope / modules (E3xxx)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E3101 | 未定义的名字 `{name}`（附最近定义提示） | 解析失败 |
-| E3102 | `{name}` 是 {priv/pkg}，不可从当前模块访问 | 可见性 |
-| E3103 | 同一作用域重复声明 `{name}`（首次于 {loc}） | 重名 |
-| E3104 | 使用未初始化的变量 `{name}` | 数据流检查 |
-| E3105 | `{name}` 在初始化中引用自身 | 初始化循环 |
-| E3106 | 循环导入：`{path}` | 模块图环，输出完整环 |
-| E3107 | 导入的名字冲突 `{name}`（来自 {a} 与 {b}） | import 合并 |
-| E3108 | 标签重复 `{label}` / `goto` 目标不存在 | 控制流解析 |
-| E3109 | `goto` 非法：{reason}（跳入更深块/跨越初始化/跨越 onexit/跨函数） | goto 规则 |
-| E3110 | `main` 缺失或签名必须为 `fn main() -> i64` 或 `fn main() -> ()` | 入口检查 |
-| E3111 | `static` 初始化必须编译期可求值 | §4 |
-| E3112 | `onexit` 内禁止 `{kw}` | §10 |
-| E3113 | 未使用的局部/导入 `{name}`（可关闭） | 提示级 W3101，可升错误 |
+| E3101 | undefined name `{name}` (with nearest definition hint) | resolution failure |
+| E3102 | `{name}` is {priv/pkg} and is not accessible from this module | visibility |
+| E3103 | duplicate declaration `{name}` in the same scope (first at {loc}) | duplicate name |
+| E3104 | use of uninitialized variable `{name}` | data-flow check |
+| E3105 | `{name}` references itself during initialization | initialization cycle |
+| E3106 | cyclic import: `{path}` | module graph cycle; print the full cycle |
+| E3107 | imported name collision `{name}` (from {a} and {b}) | import merging |
+| E3108 | duplicate label `{label}` / missing `goto` target | control-flow resolution |
+| E3109 | illegal `goto`: {reason} (jump into a deeper block / across initialization / across onexit / across functions) | goto rules |
+| E3110 | missing `main` or signature must be `fn main() -> i64` or `fn main() -> ()` | entry-point check |
+| E3111 | `static` initializer must be compile-time evaluable | §4 |
+| E3112 | `{kw}` is forbidden inside `onexit` | §10 |
+| E3113 | unused local/import `{name}` (can be disabled) | warning W3101, can be promoted |
 
-## 类型（E4xxx）
+## Types (E4xxx)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E4001 | 类型不匹配：期望 `{expected}`，实际 `{actual}` | 赋值/返回/实参 |
-| E4002 | 无法推断字面量/表达式的类型（需标注） | 无上下文 |
-| E4003 | 不允许的隐式转换 `{from}` → `{to}`（用 `as`） | 隐式规则 |
-| E4004 | `as` 不支持 `{from}` → `{to}` | §5.7 |
-| E4005 | 运算符 `{op}` 不支持类型 `{type}` | 运算检查 |
-| E4006 | 解引用非指针类型 `{type}` | `.*` |
-| E4007 | 对只读指针 `^ro {T}` 写入 | §5.3 |
-| E4008 | 数组长度必须为非负编译期整数（实际 {v}） | 类型 |
-| E4009 | 位域宽度超过底层类型 `{type}`（总宽 {sum} > {bits}） | bits |
-| E4010 | 联合体字段类型不能含非平凡构造（指针/标量以外） | union 限制（阶段四） |
-| E4011 | 结构体递归定义无指针中断：`{name}` | 无限大小 |
-| E4012 | 枚举判别值重复 `{value}` | 显式判别 |
-| E4013 | 枚举负载与无负载变体混用判别值 | 枚举规则 |
-| E4014 | 函数调用参数数量不匹配：期望 {n}，实际 {m} | 调用 |
-| E4015 | 默认参数只能从右向左省略 | 调用 |
-| E4016 | 可变参数仅允许 `extern "C"` 声明 | 函数声明 |
-| E4017 | 跨 FFI 不允许 `Outcome`/闭包/泛型实例 | FFI 校验 |
-| E4018 | `panic` 在 `extern "C"` 导出函数内被禁止（用错误码） | §11 |
-| E4019 | `try` 要求 `Outcome`，实际 `{type}` | §9 |
-| E4020 | `try` 的错误类型 `{E}` 不能转换为 `{E2}` | §9 |
-| E4021 | `match` 分支类型不一致：`{a}` vs `{b}` | 表达式 |
-| E4022 | 非穷尽匹配，缺少：`{patterns}` | §7 |
-| E4023 | 不可达分支（模式被前面覆盖） | 提示 W4201 |
-| E4024 | 守卫表达式必须为 `bool` | match |
-| E4025 | 函数名不能作为值使用（需 `&{name}`） | §5.3 |
-| E4026 | 裸函数体只允许 `asm`/`trap` | bare |
-| E4027 | `fn c` 与 `fn` 之间不能隐式转换（需显式包装） | 函数指针 |
+| E4001 | type mismatch: expected `{expected}`, found `{actual}` | assignment / return / argument |
+| E4002 | cannot infer the type of the literal/expression (annotation required) | no context |
+| E4003 | implicit conversion `{from}` → `{to}` is not allowed (use `as`) | implicit-conversion rules |
+| E4004 | `as` does not support `{from}` → `{to}` | §5.7 |
+| E4005 | operator `{op}` does not support type `{type}` | operator check |
+| E4006 | dereference of non-pointer type `{type}` | `.*` |
+| E4007 | write through read-only pointer `^ro {T}` | §5.3 |
+| E4008 | array length must be a non-negative compile-time integer (found {v}) | type |
+| E4009 | bitfield width exceeds the underlying type `{type}` (total {sum} > {bits}) | bits |
+| E4010 | union field type cannot contain non-trivial construction (other than pointer/scalar) | union restriction (Stage 4) |
+| E4011 | recursive struct definition without a pointer break: `{name}` | infinite size |
+| E4012 | duplicate enum discriminant `{value}` | explicit discriminant |
+| E4013 | enum mixes payload and payload-less variants with discriminants | enum rules |
+| E4014 | function argument count mismatch: expected {n}, found {m} | call |
+| E4015 | default arguments may only be omitted from right to left | call |
+| E4016 | varargs are only allowed on `extern "C"` declarations | function declaration |
+| E4017 | `Outcome`/closures/generic instances are not allowed across FFI | FFI validation |
+| E4018 | `panic` is forbidden in `extern "C"` exported functions (return an error code) | §11 |
+| E4019 | `try` requires `Outcome`, found `{type}` | §9 |
+| E4020 | `try` error type `{E}` cannot convert to `{E2}` | §9 |
+| E4021 | `match` arm types differ: `{a}` vs `{b}` | expression |
+| E4022 | non-exhaustive match; missing: `{patterns}` | §7 |
+| E4023 | unreachable arm (covered by an earlier pattern) | warning W4201 |
+| E4024 | guard expression must be `bool` | match |
+| E4025 | function name cannot be used as a value (use `&{name}`) | §5.3 |
+| E4026 | bare function body only allows `asm`/`trap` | bare |
+| E4027 | no implicit conversion between `fn c` and `fn` (explicit wrapper required) | function pointer |
 
-## 泛型 / 常量（E5xxx）
+## Generics / constants (E5xxx)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E5001 | 泛型实参数量不匹配：期望 {n}，实际 {m} | 实例化 |
-| E5002 | 类型实参不满足 `{param}` 的值约束（需要 `{req}`） | 值参数 |
-| E5101 | 常量求值失败：{reason} | const |
-| E5102 | 常量表达式包含不允许的操作 `{op}`（分配/IO/asm/指针解引用） | §13 |
-| E5103 | 编译期除零 | const |
-| E5104 | 数组长度/位宽不是常量 | 类型 |
-| E5201 | 实例化深度超过上限（{n}），可能是无限递归 | 泛型 |
-| E5202 | 实例化失败：`{item}[{args}]` 需要 `{req}`，在 `{chain}` 中 | 完整实例链 |
-| E5203 | 泛型成员检查失败：`{type}` 缺少 `{member}` | 实例化点 |
+| E5001 | generic argument count mismatch: expected {n}, found {m} | instantiation |
+| E5002 | type argument does not satisfy the value constraint on `{param}` (requires `{req}`) | value parameter |
+| E5101 | constant evaluation failed: {reason} | const |
+| E5102 | constant expression contains a forbidden operation `{op}` (allocation/IO/asm/pointer dereference) | §13 |
+| E5103 | compile-time division by zero | const |
+| E5104 | array length/bit width is not constant | type |
+| E5201 | instantiation depth exceeds the limit ({n}); possible infinite recursion | generics |
+| E5202 | instantiation failed: `{item}[{args}]` requires `{req}`, in `{chain}` | full instantiation chain |
+| E5203 | generic member check failed: `{type}` is missing `{member}` | instantiation point |
 
-## IR / 编码 / 汇编器（E6xxx，阶段五起）
+## IR / encoding / assembler (E6xxx, Stage 5+)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E6001 | IR 验证失败：{detail}（块 {bb}） | 内部 |
-| E6002 | 不可达基本块但含副作用（优化保守保留） | 提示 W6001 |
-| E6101 | 汇编模板非法：{detail}（第 {n} 行） | 内联汇编 |
-| E6102 | 约束不满足：`{constraint}` 用于 `{operand}` | asm |
-| E6103 | clobber 列表缺少 `{reg}`（模板实际写入） | asm 检查 |
-| E6104 | 不支持的指令 `{mnemonic}`（目标 {arch}） | asm |
-| E6201 | 寄存器分配失败（无法溢出） | 后端内部 |
-| E6202 | 栈帧超限：{bytes} 字节 | 后端 |
+| E6001 | IR verification failed: {detail} (block {bb}) | internal |
+| E6002 | unreachable basic block has side effects (kept conservatively) | warning W6001 |
+| E6101 | invalid assembly template: {detail} (line {n}) | inline assembly |
+| E6102 | constraint not satisfied: `{constraint}` used for `{operand}` | asm |
+| E6103 | clobber list missing `{reg}` (written by the template) | asm check |
+| E6104 | unsupported instruction `{mnemonic}` (target {arch}) | asm |
+| E6201 | register allocation failed (cannot spill) | backend internal |
+| E6202 | stack frame exceeds limit: {bytes} bytes | backend |
 
-## 链接 / 目标文件 / 调试信息（E7xxx，阶段七/九）
+## Linking / object files / debug info (E7xxx, Stage 7/9)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E7001 | 未定义符号 `{symbol}`（引用自 {loc}） | 链接 |
-| E7002 | 重复定义符号 `{symbol}`（{a} 与 {b}） | 链接 |
-| E7003 | 重定位溢出：{type} 超出范围 | 重定位 |
-| E7004 | 段重叠/对齐非法：{detail} | 布局 |
-| E7005 | 目标格式不支持：{fmt} | 输出 |
-| E7006 | 入口点缺失 | PE/ELF |
-| E7101 | DWARF 行表生成失败：{detail} | 调试 |
-| E7102 | 源码路径不可用（构建可复现性） | 提示 W7101 |
+| E7001 | undefined symbol `{symbol}` (referenced from {loc}) | linking |
+| E7002 | duplicate symbol definition `{symbol}` ({a} and {b}) | linking |
+| E7003 | relocation overflow: {type} out of range | relocation |
+| E7004 | overlapping section / illegal alignment: {detail} | layout |
+| E7005 | unsupported object format: {fmt} | output |
+| E7006 | missing entry point | PE/ELF |
+| E7101 | DWARF line-table generation failed: {detail} | debug |
+| E7102 | source path unavailable (build reproducibility) | warning W7101 |
 
-## 运行时（E8xxx）
+## Runtime (E8xxx)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E8001 | 空指针解引用（{func} @ {loc}） | 检查开启 |
-| E8002 | 整数除零（{func} @ {loc}） | checked/trap |
-| E8003 | 数组越界：索引 {i}，长度 {n}（{func} @ {loc}） | 检查开启 |
-| E8004 | 栈溢出/递归过深（{func}，深度 {n}） | stack-guard |
-| E8005 | 对齐错误：地址 {addr} 需要 {align} | 检查开启 |
-| E8006 | 分配失败：{bytes} 字节（分配器 {name}） | 分配器 |
-| E8007 | 重复释放/非法释放 {ptr} | 分配器检查 |
-| E8008 | `panic`：{msg}（{func} @ {loc}） | panic |
-| E8009 | 断言失败：{expr}（{func} @ {loc}） | assert |
-| E8010 | 未执行 `onexit`（panic 期间，提示） | 提示 W8010 |
+| E8001 | null pointer dereference ({func} @ {loc}) | checks enabled |
+| E8002 | integer division by zero ({func} @ {loc}) | checked/trap |
+| E8003 | array out of bounds: index {i}, length {n} ({func} @ {loc}) | checks enabled |
+| E8004 | stack overflow / recursion too deep ({func}, depth {n}) | stack guard |
+| E8005 | misaligned access: address {addr} requires {align} | checks enabled |
+| E8006 | allocation failed: {bytes} bytes (allocator {name}) | allocator |
+| E8007 | double free / invalid free {ptr} | allocator check |
+| E8008 | `panic`: {msg} ({func} @ {loc}) | panic |
+| E8009 | assertion failed: {expr} ({func} @ {loc}) | assert |
+| E8010 | `onexit` skipped during panic (warning) | warning W8010 |
 
-## 驱动 / IO（E9xxx）
+## Driver / IO (E9xxx)
 
-| 编号 | 消息模板 | 触发 |
+| Code | Message template | Trigger |
 | --- | --- | --- |
-| E9001 | 打开输入文件失败：{path}（win32={code}） | 阶段零已实现 |
-| E9002 | 读取输入文件失败：{path} | 阶段零 |
-| E9003 | 源文件超过 {limit} 上限 | 阶段零 |
-| E9004 | 创建输出文件失败：{path} | 阶段零 |
-| E9005 | 写出输出文件失败：{path} | 阶段零 |
-| E9006 | 命令行参数非法：{detail}（用法见 --help） | 阶段零 |
-| E9007 | 内存分配失败（编译器自身） | 阶段零 |
-| E9008 | 内部错误：{detail}（请附最小复现） | 阶段零 |
-| E9009 | 错误数量超过上限（{n}），终止编译 | 阶段零 |
-| E9010 | 目标平台/格式不支持：{target} | 阶段七 |
+| E9001 | failed to open input file: {path} (win32={code}) | implemented in Stage 0 |
+| E9002 | failed to read input file: {path} | Stage 0 |
+| E9003 | source file exceeds the {limit} limit | Stage 0 |
+| E9004 | failed to create output file: {path} | Stage 0 |
+| E9005 | failed to write output file: {path} | Stage 0 |
+| E9006 | invalid command-line argument: {detail} (see --help) | Stage 0 |
+| E9007 | compiler memory allocation failed | Stage 0 |
+| E9008 | internal error: {detail} (attach a minimal repro) | Stage 0 |
+| E9009 | error count exceeds the limit ({n}); compilation aborted | Stage 0 |
+| E9010 | unsupported target platform/format: {target} | Stage 7 |
 
-## 提示（Wxxxx）
+## Warnings (Wxxxx)
 
-| 编号 | 消息 | 默认 |
+| Code | Message | Default |
 | --- | --- | --- |
-| W1001 | 未定型整数默认 i64 | 提示 |
-| W3101 | 未使用的局部变量/导入 | 提示 |
-| W3102 | 嵌套块遮蔽 `{name}` | 提示 |
-| W3201 | 不可达代码 | 提示 |
-| W4201 | `match` 分支不可达 | 提示 |
-| W5201 | 超过 64 字节的类型按值传递 | 提示 |
-| W5202 | 尾调用签名不兼容，无法 TCO | 提示 |
-| W6001 | 优化保留不可达块（含副作用） | 提示 |
-| W7101 | 调试信息包含构建机绝对路径 | 提示 |
+| W1001 | untyped integer defaults to i64 | warning |
+| W3101 | unused local variable/import | warning |
+| W3102 | nested block shadows `{name}` | warning |
+| W3201 | unreachable code | warning |
+| W4201 | unreachable `match` arm | warning |
+| W5201 | type larger than 64 bytes passed by value | warning |
+| W5202 | tail-call signatures incompatible; no TCO | warning |
+| W6001 | optimizer kept an unreachable block with side effects | warning |
+| W7101 | debug info contains an absolute build-machine path | warning |
 
 ---
 
-## 与阶段零的映射（迁移表）
+## Stage 0 mapping (migration table)
 
-| 阶段零消息 | 新编号 |
+| Stage 0 message | New code |
 | --- | --- |
-| 无效字符 | E1001 |
-| 整数字面量超出 i64 范围 | E1004 |
-| 块注释未闭合 | E1003 |
-| 阶段 0 不支持字符串字面量 | E1002（阶段二起实现字符串，将改为正常路径） |
-| 期望 `X` | E2001 |
-| 期望标识符 | E2002 |
-| 期望类型名 | E2003 |
-| 阶段 0 仅支持 i64 类型 | 阶段四类型系统上线后删除该限制，错误并入 E4001 |
-| 重复的函数定义 | E3103 |
-| 重复的参数名 | E3103 |
-| 重复的局部变量（阶段 0 不允许遮蔽） | E3103 + W3102（阶段四放开嵌套遮蔽） |
-| 未定义的标识符 | E3101 |
-| 未定义的函数 | E3101 |
-| 参数数量不匹配 | E4014 |
-| print 为内建函数名 | 阶段八迁移到标准库后移除 |
-| 阶段 0 最多支持 4 个参数 | 阶段六 ABI 扩展后移除 |
-| 函数名不能作为值使用 | E4025 |
-| 缺少 main 函数 | E3110 |
-| 打开输入文件失败 | E9001 |
-| 内存分配失败 | E9007 |
-| 错误数超过上限 | E9009 |
-| 内部错误 | E9008 |
+| invalid character | E1001 |
+| integer literal out of i64 range | E1004 |
+| unterminated block comment | E1003 |
+| string literals not supported in Stage 0 | E1002 (strings arrive in Stage 2) |
+| expected `X` | E2001 |
+| expected identifier | E2002 |
+| expected type name | E2003 |
+| Stage 0 only supports i64 | removed when the Stage 4 type system lands; merged into E4001 |
+| duplicate function definition | E3103 |
+| duplicate parameter name | E3103 |
+| duplicate local variable (Stage 0 forbids shadowing) | E3103 + W3102 (Stage 4 allows nested shadowing) |
+| undefined identifier | E3101 |
+| undefined function | E3101 |
+| argument count mismatch | E4014 |
+| print is a builtin name | removed when Stage 8 moves print to the standard library |
+| Stage 0 supports at most four parameters | removed when Stage 6 extends the ABI |
+| function name cannot be used as a value | E4025 |
+| missing main function | E3110 |
+| failed to open input file | E9001 |
+| memory allocation failed | E9007 |
+| error count exceeds the limit | E9009 |
+| internal error | E9008 |
 
 ---
 
-## 实现约束（阶段二起生效）
+## Implementation constraints (effective from Stage 2)
 
-- 诊断对象为结构化 `Diagnostic{code, severity, span, message, notes[], related[]}`，渲染与收集分离；格式化/LSP/文档共用同一结构。
-- 每条错误必须能序列化为 JSON（LSP 诊断）与人类可读文本两种形式，内容等价。
-- 错误恢复不得产生“级联噪声”：同一位置同一原因只报一次；名字未定义后，其使用点不再重复报类型错误。
-- 上限默认 32 条（可用 `--max-errors` 调整）；达到上限发出 E9009 并终止。
-- 退出码：0 成功；1 编译错误（存在任意 E 级诊断）；2 驱动/用法错误；3 内部错误/资源失败；4 运行时 panic（产物退出码语义由程序决定，运行时 panic 固定 4）。
+- Diagnostics use the structured `Diagnostic{code, severity, span, message, notes[], related[]}` object; rendering and collection are separate. Formatting, LSP, and documentation share the same structure.
+- Every diagnostic must serialize to both JSON (LSP) and human-readable text with equivalent content.
+- Error recovery must not create cascading noise: the same location and cause are reported once. After an undefined name is reported, its uses do not repeat type errors.
+- The default limit is 32 diagnostics (`--max-errors` adjusts it). Reaching the limit emits E9009 and terminates.
+- Exit codes: 0 success; 1 compile error (any E-level diagnostic); 2 driver/usage error; 3 internal/resource failure; 4 runtime panic. A generated program's own exit code is defined by that program; runtime panic is fixed at 4.

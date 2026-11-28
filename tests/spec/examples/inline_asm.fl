@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE inline_asm
-// 期望: 5（模板 {0}/{1} 绑定操作数；clobber 必须显式）
+// Expect: 5 (template {0}/{1} binds operands; clobbers must be explicit)
 fn main() -> i64 {
     let x: i64 = 5;
     let y: i64 = 0;

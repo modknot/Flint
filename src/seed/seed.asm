@@ -1,20 +1,20 @@
 ; ===========================================================================
-; Flint 种子编译器（阶段 0）
-; 构建：nasm -f bin（两次汇编：先量节长度，再写 PE 头）
-; 不依赖链接器、不依赖任何 C 运行时；仅 kernel32 导入。
+; Flint seed compiler (stage 0)
+; Build: nasm -f bin (two passes: measure section lengths, then write the PE header)
+; No linker and no C runtime; imports kernel32 only.
 ; ===========================================================================
 BITS 64
 DEFAULT REL
 
 %ifndef SEC_RAW
-%define SEC_RAW 0x200          ; 仅编辑器缺省；build.ps1 必须传入实测值
+%define SEC_RAW 0x200          ; editor default only; build.ps1 must pass the measured value
 %endif
 
 %include "defines.inc"
 %define SEC_IMAGE_SIZE ((SEC_RVA + SEC_RAW + 0xFFF) & ~0xFFF)
 
 %ifndef MEASURE_PASS
-; ============================ DOS 头 ======================================
+; ============================ DOS header ===================================
 seed_file_start:
     dw 0x5A4D
     times 0x3A db 0
@@ -30,7 +30,7 @@ seed_file_start:
     dw 0x00F0
     dw 0x0023                       ; EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE | RELOCS_STRIPPED
 
-; ========================== 可选头 PE32+ ==================================
+; ========================== optional header PE32+ =========================
 seed_opt:
     dw 0x020B
     db 0
@@ -65,7 +65,7 @@ seed_opt:
     dd imp_rva, imp_size
     times 14 dd 0, 0
 
-; ============================ 节表 ========================================
+; ============================ section table ===============================
     db ".text", 0, 0, 0
     dd SEC_RAW
     dd SEC_RVA
@@ -78,7 +78,7 @@ seed_opt:
     times HDR_SIZE - ($ - $$) db 0
 %endif
 
-; ============================ 节内容 ======================================
+; ============================ section contents ============================
 %include "data.asm"
 %include "memory.asm"
 %include "diag.asm"

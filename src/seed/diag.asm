@@ -1,9 +1,10 @@
 ; ===========================================================================
-; 诊断输出（stdout，UTF-8；控制台代码页由 main 设为 65001）
-; 所有人类可读文本均为 UTF-8，行号列号 1 基，Snippet 按 4 列 Tab 展开。
+; Diagnostic output (stdout, UTF-8; main sets the console code page to 65001).
+; All human-readable text is UTF-8; line and column numbers are 1-based; snippets
+; expand tabs to 4 columns.
 ; ===========================================================================
 
-; ------------------------------ 基础输出 ----------------------------------
+; ------------------------------ basic output ------------------------------
 ; out_write(rdi=ptr, rsi=len)
 out_write:
     push rbp
@@ -124,9 +125,9 @@ out_i64:
     pop rbp
     ret
 
-; ------------------------------ 行定位 ------------------------------------
+; ------------------------------ line location -----------------------------
 find_line_start:
-    ; rdi=offset -> rax=行首字节偏移
+    ; rdi=offset -> rax=line start byte offset
     mov rax, rdi
     mov r8, [rel src_ptr]
 .loop:
@@ -140,7 +141,7 @@ find_line_start:
     ret
 
 find_line_end:
-    ; rdi=offset -> rax=行尾字节偏移（不含）
+    ; rdi=offset -> rax=line end byte offset (exclusive)
     mov rax, rdi
     mov r8, [rel src_ptr]
     mov r9, [rel src_len]
@@ -158,7 +159,7 @@ find_line_end:
     ret
 
 caret_width:
-    ; rdi=line_start, rsi=err_offset -> rax=显示宽度（Tab 4 列，UTF-8 续字节 0 宽）
+    ; rdi=line_start, rsi=err_offset -> rax=display width (Tab = 4 columns, UTF-8 continuation bytes = 0 width)
     xor eax, eax
     mov r8, [rel src_ptr]
 .loop:
@@ -198,7 +199,7 @@ print_snippet:
     mov [rbp - 24], edx
     mov [rbp - 32], ecx
 
-    ; 行号右对齐宽度 4
+    ; line number right-aligned to width 4
     mov eax, ecx
     xor r8d, r8d
     cmp eax, 10
@@ -223,7 +224,8 @@ print_snippet:
     lea rdi, [rel s_bar]
     call out_cstr
 
-    ; 打印源码行（Tab 展开，UTF-8 续字节原样输出，超 160 列截断）
+    ; Print the source line (tabs expanded; UTF-8 continuation bytes emitted as-is;
+; lines longer than 160 columns are truncated)
     mov r9, [rel src_ptr]
     mov rdi, [rbp - 8]
     mov rsi, [rbp - 16]
@@ -286,7 +288,7 @@ print_snippet:
     mov edi, 10
     call out_ch
 
-    ; caret 行
+    ; caret line
     mov edi, 7
     call out_spaces
     mov edi, '|'
@@ -308,9 +310,9 @@ print_snippet:
     pop rbp
     ret
 
-; ------------------------------ 诊断主入口 --------------------------------
+; ------------------------------ diagnostic entry point ---------------------
 ; diag_at(rdi=byte_offset, rsi=line, rdx=col, rcx=msg, r8=msglen)
-; 若 diag_name_ptr 非 0，则在消息后追加 'name'
+; When diag_name_ptr is non-zero, append 'name' after the message
 diag_at:
     push rbp
     mov rbp, rsp
@@ -361,7 +363,7 @@ diag_at:
     mov edi, 10
     call out_ch
 
-    ; 源码片段
+    ; source snippet
     mov rdi, [rbp - 8]
     call find_line_start
     mov [rbp - 48], rax
@@ -383,7 +385,7 @@ diag_at:
     pop rbp
     ret
 
-; ------------------------------ 终止 --------------------------------------
+; ------------------------------ termination -------------------------------
 ; fatal(rdi=msg, rsi=len, rdx=exit_code)
 fatal:
     push rbp
@@ -402,7 +404,7 @@ fatal:
     mov rdi, [rbp - 8]
     call exit_now
 
-; fatal_win(rdi=msg, rsi=len, rdx=exit_code)：附带 GetLastError
+; fatal_win(rdi=msg, rsi=len, rdx=exit_code): include GetLastError
 fatal_win:
     push rbp
     mov rbp, rsp
@@ -428,7 +430,7 @@ fatal_win:
     mov rdi, [rbp - 8]
     call exit_now
 
-; exit_now(rdi=code)：恢复控制台代码页并退出
+; exit_now(rdi=code): restore the console code page and exit
 exit_now:
     push rbp
     mov rbp, rsp

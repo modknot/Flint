@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE const_static
-// 期望: 1025（LIMIT=1024，COUNTER 自增一次）
+// Expect: 1025 (LIMIT=1024, COUNTER increments once)
 const LIMIT: i64 = 1 shl 10;
 static mut COUNTER: i64 = 0;
 

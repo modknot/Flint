@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE generic_inst_err
-// 期望: 编译错误 E5202，实例链 inc[bool] 需要 op_add，bool 不支持
+// Expect: compile error E5202; instance chain inc[bool] needs op_add, bool is unsupported
 fn inc[T](x: T) -> T { return x + 1; }
 
 fn main() -> i64 {

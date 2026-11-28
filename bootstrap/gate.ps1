@@ -1,21 +1,18 @@
 # ===========================================================================
-# 自举闸门：从算术到最小源码驱动编译器骨架。
-# 每一级都是"用 Flint 写编译器"真正需要的底层能力。
-# 上一级编译器能过到哪一级，就说明自举条件具备到哪一步；第一处失败即下一阶段任务。
-# 用法：pwsh -NoProfile -File bootstrap\gate.ps1
+# Bootstrap gate: from arithmetic to a source-driven compiler skeleton.
+# Each level is a capability needed to write a compiler in Flint.
+# The highest passing level shows how far the current compiler has come.
+# Usage: pwsh -NoProfile -File bootstrap\gate.ps1
 # ===========================================================================
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-. (Join-Path $root 'scripts\flint-source.ps1')
-& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'build-flint0.ps1')
-if ($LASTEXITCODE -ne 0) { throw "flint0 build failed ($LASTEXITCODE)" }
-$stage0 = Join-Path $root 'build\flint0.exe'
+$compiler = Join-Path $root 'build\flintc.exe'
 $ladder = Join-Path $PSScriptRoot 'ladder'
 $outDir = Join-Path $root 'build\bootstrap'
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
-if (-not (Test-Path -LiteralPath $stage0)) {
-    Write-Host '[gate] build/flint0.exe 不存在'
+if (-not (Test-Path -LiteralPath $compiler)) {
+    Write-Host '[gate] build/flintc.exe is missing; run bootstrap/cold-start.ps1 once'
     exit 1
 }
 
@@ -33,23 +30,16 @@ foreach ($f in (Get-ChildItem -LiteralPath $ladder -Filter *.fl | Sort-Object Na
         $compileSrc = Join-Path $PSScriptRoot $Matches[1].Trim()
     }
     if (-not (Test-Path -LiteralPath $compileSrc)) {
-        $report += [pscustomobject]@{ 级别 = $f.Name; 结果 = 'FAIL(编译)'; 实际 = "源文件不存在: $compileSrc" }
+        $report += [pscustomobject]@{ Level = $f.Name; Result = 'FAIL(compile)'; Detail = "missing source: $compileSrc" }
         $fail++
         continue
     }
 
-    $compileText = Get-Content -LiteralPath $compileSrc -Raw
-    if ($compileText -match '//\s*include:') {
-        $unit = Join-Path $outDir ([IO.Path]::GetFileNameWithoutExtension($f.Name) + '.unit.fl')
-        [IO.File]::WriteAllLines($unit, (Expand-FlintSource -Path $compileSrc), (New-Object System.Text.UTF8Encoding($false)))
-        $compileSrc = $unit
-    }
-
-    $compile = (& $stage0 $compileSrc $exe 2>&1 | Out-String).Trim()
+    $compile = (& $compiler $compileSrc $exe 2>&1 | Out-String).Trim()
     if (-not (Test-Path -LiteralPath $exe)) {
         $reason = ($compile -split "`n" | Where-Object { $_ -match 'error|失败|不是' } | Select-Object -First 1)
         if (-not $reason) { $reason = $compile }
-        $report += [pscustomobject]@{ 级别 = $f.Name; 结果 = 'FAIL(编译)'; 实际 = $reason.Trim() }
+        $report += [pscustomobject]@{ Level = $f.Name; Result = 'FAIL(compile)'; Detail = $reason.Trim() }
         $fail++
         continue
     }
@@ -57,16 +47,16 @@ foreach ($f in (Get-ChildItem -LiteralPath $ladder -Filter *.fl | Sort-Object Na
     $runOut = ((& $exe 2>&1 | Out-String).Trim())
     $code = $LASTEXITCODE
     if ($runOut -eq $wantOut -and $code -eq $wantExit) {
-        $report += [pscustomobject]@{ 级别 = $f.Name; 结果 = 'PASS'; 实际 = "stdout=$runOut exit=$code" }
+        $report += [pscustomobject]@{ Level = $f.Name; Result = 'PASS'; Detail = "stdout=$runOut exit=$code" }
     } else {
-        $report += [pscustomobject]@{ 级别 = $f.Name; 结果 = 'FAIL(运行)'; 实际 = "stdout=$runOut exit=$code 期望 stdout=$wantOut exit=$wantExit" }
+        $report += [pscustomobject]@{ Level = $f.Name; Result = 'FAIL(run)'; Detail = "stdout=$runOut exit=$code expected stdout=$wantOut exit=$wantExit" }
         $fail++
     }
 }
 
 $report | Format-Table -AutoSize | Out-String -Width 220 | Write-Host
-$text = ($report | ForEach-Object { "$($_.级别)`t$($_.结果)`t$($_.实际)" }) -join "`n"
-[IO.File]::WriteAllText((Join-Path $root 'build\bootstrap-gate.txt'), "自举闸门 $(Get-Date -Format s)`n$text`n", (New-Object System.Text.UTF8Encoding($false)))
-Write-Host "通过 $($report.Count - $fail) / $($report.Count)，明细写入 build\bootstrap-gate.txt"
+$text = ($report | ForEach-Object { "$($_.Level)`t$($_.Result)`t$($_.Detail)" }) -join "`n"
+[IO.File]::WriteAllText((Join-Path $root 'build\bootstrap-gate.txt'), "Bootstrap gate $(Get-Date -Format s)`n$text`n", (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "Passed $($report.Count - $fail) / $($report.Count); details in build\bootstrap-gate.txt"
 if ($fail -gt 0) { exit 1 }
 exit 0

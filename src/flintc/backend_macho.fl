@@ -1,4 +1,4 @@
-// ------------------------------ Mach-O 64 后端 ---------------------------
+// ------------------------------ Mach-O 64 backend -------------------------
 // Static executable: no dyld, no libSystem. The kernel starts the thread
 // directly from LC_UNIXTHREAD with a writable stack in __DATA.
 //   0x000 header

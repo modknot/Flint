@@ -1,6 +1,7 @@
 ; ===========================================================================
-; 内存：bump arena（阶段 0 不回收；阶段 2 换成块表 + 可选释放）
-; arena_alloc(rdi=size) -> rax=ptr（16 字节对齐）
+; Memory: bump arena (stage 0 never reclaims; stage 2 replaces it with a block
+; table and optional free)
+; arena_alloc(rdi=size) -> rax=ptr (16-byte aligned)
 ; ===========================================================================
 arena_alloc:
     push rbp
@@ -15,7 +16,7 @@ arena_alloc:
     cmp rdx, [rel ar_end]
     jbe .have
 
-    ; 当前块不足：申请新块（大小取 max(request, 1 MiB)）
+    ; Current block is too small: allocate a new block (size = max(request, 1 MiB))
     mov rsi, rdi
     cmp rsi, 0x100000
     jae .size_ok

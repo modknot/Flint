@@ -1,7 +1,8 @@
 # ===========================================================================
-# Flint 自带汇编器：把 src/seed 的汇编源码变成平铺 PE 镜像
-# 只实现种子用到的 NASM 子集；不调用 NASM，不依赖任何 C 编译器。
-# 用法：pwsh -NoProfile -File bootstrap\asm.ps1 -Source src\seed\seed.asm -Output build\flint0.bin [-Define SEC_RAW=...] [-Define MEASURE_PASS=1]
+# Flint's built-in assembler: turn the assembly source under src/seed into a
+# flat PE image. It implements only the NASM subset the cold-start seed uses;
+# it does not invoke NASM and does not depend on any C compiler.
+# Usage: pwsh -NoProfile -File bootstrap\asm.ps1 -Source src\seed\seed.asm -Output build\flint0.bin [-Define SEC_RAW=...] [-Define MEASURE_PASS=1]
 # ===========================================================================
 $ErrorActionPreference = 'Stop'
 
@@ -45,7 +46,7 @@ function Split-Args([string]$s) {
 }
 
 # ---------------------------------------------------------------------------
-# 预处理：%include、%define、%ifndef/%ifdef/%else/%endif、MSG 宏
+# Preprocessor: %include, %define, %ifndef/%ifdef/%else/%endif, MSG macro
 # ---------------------------------------------------------------------------
 function Expand-Source([string]$path, [hashtable]$defines) {
     $base = Split-Path -Parent (Resolve-Path -LiteralPath $path)
@@ -112,7 +113,7 @@ function Expand-Source([string]$path, [hashtable]$defines) {
 }
 
 # ---------------------------------------------------------------------------
-# 表达式
+# expressions
 # ---------------------------------------------------------------------------
 $script:ExprToken = [regex]'\G\s*(0x[0-9A-Fa-f]+|\d+|\$\$|\$|[A-Za-z_.][A-Za-z0-9_.]*|[()+\-*/&|~^]|<<|>>)'
 
@@ -206,7 +207,7 @@ function Eval-Expr([string]$s, [hashtable]$symbols, [int64]$current, [hashtable]
 }
 
 # ---------------------------------------------------------------------------
-# 操作数
+# operands
 # ---------------------------------------------------------------------------
 function Parse-Mem([string]$s, $size) {
     $rip = $false
@@ -282,7 +283,7 @@ function Parse-Operand([string]$s) {
 }
 
 # ---------------------------------------------------------------------------
-# 编码辅助
+# encoding helpers
 # ---------------------------------------------------------------------------
 function New-Buf { return ,([System.Collections.Generic.List[byte]]::new()) }
 function Add-B([System.Collections.Generic.List[byte]]$b, [int]$v) { $b.Add([byte]($v -band 0xFF)) }
@@ -712,12 +713,12 @@ function Encode-Instruction([string]$mn, $ops, [int64]$addr, [hashtable]$symbols
 }
 
 # ---------------------------------------------------------------------------
-# 汇编器
+# assembler
 # ---------------------------------------------------------------------------
 function Invoke-Assembler([string]$source, [hashtable]$defines, [string]$output, [string]$mapPath) {
     $lines = Expand-Source $source $defines
 
-    # 先把纯常量 define 求值
+    # evaluate constant-only defines first
     $resolved = @{}
     foreach ($k in $defines.Keys) {
         try { $resolved[$k] = Eval-Expr ([string]$defines[$k]) @{} 0 $resolved $false }

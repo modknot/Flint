@@ -1,10 +1,12 @@
 ; ===========================================================================
-; 代码生成 + 内部 PE32+ 写出（阶段 0）
-; 约定：FlintCall(临时) = 参数 rcx,rdx,r8,r9；返回 rax；调用者负责 16 字节栈对齐
-; 生成代码内的表达式采用栈机：左值 push，右值 -> rcx，再弹回 rax。
+; Code generation + internal PE32+ writer (stage 0)
+; Convention: FlintCall(temp) = arguments rcx,rdx,r8,r9; return rax; caller
+; maintains 16-byte stack alignment.
+; Expressions in generated code use a stack machine: push lvalue, evaluate rhs
+; into rcx, then pop back into rax.
 ; ===========================================================================
 
-; ------------------------------ 节缓冲 ------------------------------------
+; ------------------------------ section buffer -----------------------------
 cb_begin:
     mov edi, SEC_BYTES
     call arena_alloc
@@ -93,7 +95,7 @@ patch32:
     mov [rax + rdi], esi
     ret
 
-; emit_rm_disp(edi=opcode, esi=reg, edx=disp) —— REX.W + modrm，base 固定 rbp
+; emit_rm_disp(edi=opcode, esi=reg, edx=disp) -- REX.W + modrm with base fixed to rbp
 emit_rm_disp:
     push rbp
     mov rbp, rsp
@@ -266,7 +268,7 @@ call_off:
     pop rbp
     ret
 
-; ------------------------------ 回填表 ------------------------------------
+; ------------------------------ backfill table -----------------------------
 ; fx_add(rdi=disp_off, rsi=name, edx=len, ecx=line, r8d=col, r9d=srcoff)
 fx_add:
     push rbp
@@ -299,7 +301,7 @@ fx_add:
     pop rbp
     ret
 
-; ------------------------------ 函数表 ------------------------------------
+; ------------------------------ function table -----------------------------
 fn_find:
     ; rdi=name ptr, rsi=len -> rax=record/0
     mov rdx, [rel fn_head]
@@ -373,7 +375,7 @@ fn_add:
     pop rbp
     ret
 
-; ------------------------------ 局部变量 ----------------------------------
+; ------------------------------ locals -------------------------------------
 local_find:
     ; rdi=ptr, rsi=len -> rax=slot / -1
     mov rdx, [rel local_head]
@@ -429,7 +431,7 @@ local_add:
     pop rbp
     ret
 
-; local_type(rdi=ptr, rsi=len) -> eax=类型码 / -1
+; local_type(rdi=ptr, rsi=len) -> eax=type code / -1
 local_type:
     mov rdx, [rel local_head]
 .loop:
@@ -458,7 +460,7 @@ local_type:
     mov eax, -1
     ret
 
-; ------------------------------ 名字工具 ----------------------------------
+; ------------------------------ name helpers -------------------------------
 tok_text:
     mov rax, [rel src_ptr]
     mov ecx, [rdi + TK_START]
@@ -524,14 +526,14 @@ tok_is:
     ret
 
 ; ---------------------------------------------------------------------------
-; 数据段：KERNEL32 导入表 + 全局槽 + 常量
+; data section: KERNEL32 import table + global slots + constants
 ; ---------------------------------------------------------------------------
 emit_data:
     push rbp
     mov rbp, rsp
     sub rsp, 0x40
 
-    ; DLL 名
+    ; DLL name
     mov rax, [rel sec_len]
     mov [rel g_dll_off], rax
     lea rdi, [rel str_kernel32]
@@ -637,7 +639,7 @@ emit_data:
     xor eax, eax
     call cb_q
 
-    ; 导入描述符（1 个 + 终止符）
+    ; import descriptor (1 + terminator)
     mov rax, [rel sec_len]
     mov [rel g_desc_off], rax
     xor eax, eax
@@ -657,7 +659,7 @@ emit_data:
     call cb_d
     call cb_d
 
-    ; 全局槽
+    ; global slots
     mov rax, [rel sec_len]
     add rax, 7
     and rax, ~7
@@ -672,7 +674,7 @@ emit_data:
     mov eax, 10
     call cb_b
 
-    ; 代码段 16 字节对齐
+    ; code section, 16-byte aligned
     mov rax, [rel sec_len]
     add rax, 15
     and rax, ~15
@@ -682,7 +684,7 @@ emit_data:
     pop rbp
     ret
 
-; 把 sec_len 抬到 8 字节对齐（写零）
+; round sec_len up to 8-byte alignment (write zeros)
 cg_pad_to_8:
     push rbp
     mov rbp, rsp
@@ -702,7 +704,7 @@ cg_pad_to_8:
     ret
 
 ; ---------------------------------------------------------------------------
-; 输出程序的 print 桩（十进制 + 换行），仅用易失寄存器
+; print stub for generated programs (decimal + newline), using volatile registers only
 ; ---------------------------------------------------------------------------
 emit_helper:
     push rbp

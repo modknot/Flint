@@ -1,7 +1,9 @@
 ; ===========================================================================
-; Flint 运行库：由编译器嵌入到每个生成程序的开头。
-; 调用约定与 Flint 生成代码一致：参数从 [rbp+16] 起，返回值 rax，调用方清栈。
-; IAT 槽位以节内偏移表示：文件偏移 = 节内偏移 + 0x200，RVA = 0x1000 + 文件偏移。
+; Flint runtime, embedded at the start of every generated program.
+; The calling convention matches generated Flint code: arguments start at
+; [rbp+16], the return value is in rax, and the caller cleans the stack.
+; IAT slots are section offsets: file offset = section offset + 0x200,
+; RVA = 0x1000 + file offset.
 ; ===========================================================================
 BITS 64
 DEFAULT REL
@@ -52,7 +54,7 @@ rt_free:
     ret
 
 ; ---------------------------------------------------------------------------
-; rt_writefile(path, plen, data, len) -> 1 成功 / 0 失败
+; rt_writefile(path, plen, data, len) -> 1 on success / 0 on failure
 ; ---------------------------------------------------------------------------
 rt_writefile:
     push rbp
@@ -92,7 +94,7 @@ rt_writefile:
     ret
 
 ; ---------------------------------------------------------------------------
-; rt_readfile(path, plen, dst, max) -> 读到的字节数，失败 0
+; rt_readfile(path, plen, dst, max) -> bytes read, 0 on failure
 ; ---------------------------------------------------------------------------
 rt_readfile:
     push rbp
@@ -132,7 +134,7 @@ rt_readfile:
     ret
 
 ; ---------------------------------------------------------------------------
-; 一个字节填充，保持 rt_print 在运行库内的偏移为 494。
+; One padding byte keeps rt_print at offset 494 in the runtime.
 ; ---------------------------------------------------------------------------
     db 0x90
 ; rt_print(value) -> 0
@@ -187,8 +189,9 @@ rt_print:
     ret
 
 ; ---------------------------------------------------------------------------
-; rt_args_init：第一次 alloc 时把 GetCommandLineA 切成 argv，写入固定数据区。
-; argc/argv 由编译器主程序按生成的地址读取；普通程序不会用到这些槽位。
+; rt_args_init: on the first alloc, split GetCommandLineA into argv and write
+; it to the fixed data area. The compiler main program reads argc/argv from
+; the generated addresses; ordinary programs do not use these slots.
 ; ---------------------------------------------------------------------------
 rt_args_init:
     push rbp

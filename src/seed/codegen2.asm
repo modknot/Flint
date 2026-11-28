@@ -1,8 +1,8 @@
 ; ===========================================================================
-; 语义检查（阶段 0 子集）+ 函数代码生成 + 入口 + 回填 + PE 写出
+; Semantic checks (stage 0 subset) + function code generation + entry + backfill + PE output
 ; ===========================================================================
 
-; ------------------------------ 名字比较 ----------------------------------
+; ------------------------------ name comparison ----------------------------
 name_eq:
     cmp rsi, rcx
     jne .no
@@ -43,7 +43,7 @@ diag_name:
     pop rbp
     ret
 
-; ------------------------------ 函数收集 ----------------------------------
+; ------------------------------ function collection ------------------------
 collect_functions:
     push rbp
     mov rbp, rsp
@@ -57,9 +57,9 @@ collect_functions:
     jz .done
     mov [rbp - 16], rax
     mov rax, [rax + ND_A]
-    mov [rbp - 24], rax                  ; 名字 Token
+    mov [rbp - 24], rax                  ; name Token
 
-    ; 保留名 print
+    ; reserved name print
     mov rdi, [rbp - 24]
     lea rsi, [rel s_print]
     call tok_is
@@ -145,7 +145,7 @@ collect_functions:
     jmp .outer
 .dup_done:
 
-    ; 重名检查 + 登记
+    ; duplicate check + registration
     mov rdi, [rbp - 24]
     call tok_text
     mov [rbp - 72], rax
@@ -179,8 +179,8 @@ collect_functions:
     pop rbp
     ret
 
-; ------------------------------ 类型与左值 --------------------------------
-; type_size(edi=类型码) -> eax=字节数（基类型大小）
+; ------------------------------ types and lvalues --------------------------
+; type_size(edi=type code) -> eax=byte size (base type size)
 type_size:
     mov eax, edi
     test eax, TY_ARRAY
@@ -234,7 +234,7 @@ type_size:
     mov eax, [rdx + AR_SZ]
     ret
 
-; elem_type(edi=容器类型) -> eax=元素类型（数组取元素，指针取基类型）
+; elem_type(edi=container type) -> eax=element type (arrays return their element; pointers return their base type)
 elem_type:
     mov eax, edi
     test eax, TY_ARRAY
@@ -341,7 +341,7 @@ node_type:
     pop rbp
     ret
 
-; gen_addr(rdi=node) -> rax=左值地址（NK_IDENT / NK_INDEX）
+; gen_addr(rdi=node) -> rax=lvalue address (NK_IDENT / NK_INDEX)
 gen_addr:
     push rbp
     mov rbp, rsp
@@ -373,7 +373,7 @@ gen_addr:
     call local_find
     cmp rax, -1
     je .undef
-    mov edx, eax                         ; LV_SLOT 直接存 disp
+    mov edx, eax                         ; LV_SLOT stores disp directly
     mov edi, 0x8D                       ; lea rax,[rbp+disp]
     xor esi, esi
     call emit_rm_disp
@@ -393,12 +393,12 @@ gen_addr:
 .index_ptrbase:
     mov rdi, [rbp - 8]
     mov rdi, [rdi + ND_A]
-    call gen_expr                       ; 指针：运行时值即基址
+    call gen_expr                       ; pointer: runtime value is the base address
     jmp .index_base_ready
 .index_localbase:
     mov rdi, [rbp - 8]
     mov rdi, [rdi + ND_A]
-    call gen_addr                       ; 数组/结构体：取存储地址
+    call gen_addr                       ; array/struct: take the storage address
 .index_base_ready:
     call emit_push_rax
     mov rax, [rbp - 8]
@@ -408,10 +408,10 @@ gen_addr:
     call elem_type
     mov edi, eax
     call type_size
-    mov [rbp - 48], eax                 ; 元素大小
+    mov [rbp - 48], eax                 ; element size
     mov rax, [rbp - 8]
     mov rdi, [rax + ND_B]
-    call gen_expr                       ; 运行时：下标 -> rax
+    call gen_expr                       ; runtime: index -> rax
     mov ecx, [rbp - 48]
     cmp ecx, 8
     je .mul8
@@ -450,7 +450,7 @@ gen_addr:
     mov eax, [rbp - 48]
     call cb_d
 .mul_done:
-    mov edi, 9                          ; 弹出基址到 r9
+    mov edi, 9                          ; pop base address into r9
     call emit_pop_reg
     mov eax, 0x4C                       ; add rax,r9
     call cb_b
@@ -462,25 +462,25 @@ gen_addr:
 .deref:
     mov rax, [rbp - 8]
     mov rdi, [rax + ND_A]
-    call gen_expr                       ; 指针值即地址
+    call gen_expr                       ; pointer value is the address
     jmp .done
 .field:
     mov rax, [rbp - 8]
     mov rdi, [rax + ND_A]
     call node_type
-    mov [rbp - 72], eax                 ; 基址类型
+    mov [rbp - 72], eax                 ; base type
     test eax, TY_PTR
     jz .field_base_obj
     mov rax, [rbp - 8]
     mov rdi, [rax + ND_A]
-    call gen_expr                       ; 指针：运行时值即结构体地址
+    call gen_expr                       ; pointer: runtime value is the struct address
     jmp .field_base_ready
 .field_base_obj:
     mov rax, [rbp - 8]
     mov rdi, [rax + ND_A]
     call gen_addr
 .field_base_ready:
-    mov [rbp - 56], rax                 ; 基址地址
+    mov [rbp - 56], rax                 ; base address
     mov eax, [rbp - 72]
     test eax, TY_PTR
     jz .field_type_ready
@@ -519,7 +519,7 @@ gen_addr:
     pop rbp
     ret
 
-; ------------------------------ 表达式生成 --------------------------------
+; ------------------------------ expression generation ----------------------
 gen_expr:
     push rbp
     mov rbp, rsp
@@ -568,7 +568,7 @@ gen_expr:
     call local_find
     cmp rax, -1
     je .ident_not_local
-    mov edx, eax                         ; LV_SLOT 直接存 disp
+    mov edx, eax                         ; LV_SLOT stores disp directly
     mov [rbp - 72], edx
     mov rdi, [rbp - 56]
     mov rsi, [rbp - 64]
@@ -596,7 +596,7 @@ gen_expr:
     mov edx, [rax + TK_LINE]
     mov ecx, [rax + TK_COL]
     mov r8d, [rax + TK_START]
-    call emit_fnaddr_fixup              ; 函数名作值：地址补丁
+    call emit_fnaddr_fixup              ; function name as value: address patch
     jmp .done
 .ident_undef:
     mov rdi, [rbp - 16]
@@ -632,7 +632,7 @@ gen_expr:
     je .op_add
     cmp eax, TK_MINUS
     je .op_sub
-    cmp eax, TK_PLUS_ASSIGN              ; 脱糖后的 +=
+    cmp eax, TK_PLUS_ASSIGN              ; desugared +=
     je .op_add
     cmp eax, TK_MINUS_ASSIGN
     je .op_sub
@@ -712,7 +712,7 @@ gen_expr:
     call cb_b
     jmp .done
 
-; 比较：cmp rax,rcx -> setcc al -> movzx eax,al（结果 0/1）
+; comparison: cmp rax,rcx -> setcc al -> movzx eax,al (result 0/1)
 .op_lt:
     mov r9d, 0x9C
     jmp .cmp_emit
@@ -807,7 +807,7 @@ gen_expr:
     call gen_expr
     mov edi, [rbp - 80]
     test edi, TY_PTR
-    jnz .done                           ; 指针转换不改位宽
+    jnz .done                           ; pointer conversion does not change width
     and edi, 0x0F
     cmp edi, TY_BYTE
     jne .cast_u32
@@ -823,7 +823,7 @@ gen_expr:
 .cast_u32:
     cmp edi, TY_U32
     jne .done
-    mov eax, 0x89                      ; mov eax,eax（清零高 32 位）
+    mov eax, 0x89                      ; mov eax,eax (clear upper 32 bits)
     call cb_b
     mov eax, 0xC0
     call cb_b
@@ -863,7 +863,7 @@ gen_expr:
     test al, al
     jnz .readfile_call
 
-    ; 若 callee 是函数指针类型的局部变量，走间接调用
+    ; If callee is a local of function-pointer type, use an indirect call
     mov rax, [rbp - 16]
     mov [rbp - 96], rax
     mov rdi, rax
@@ -877,7 +877,7 @@ gen_expr:
     call local_find
     cmp rax, -1
     je .normal_call
-    mov [rbp - 88], rax                 ; 槽号
+    mov [rbp - 88], rax                 ; slot number
     mov rax, [rbp - 8]
     mov rax, [rax + ND_B]
     mov [rbp - 32], rax
@@ -922,7 +922,7 @@ gen_expr:
     mov rdx, [rbp - 96]
     mov [rax + ND_A], rdx
     mov rdi, rax
-    call gen_expr                       ; rax = 函数指针值
+    call gen_expr                       ; rax = function pointer value
     mov eax, 0xFF                       ; call rax
     call cb_b
     mov eax, 0xD0
@@ -935,7 +935,7 @@ gen_expr:
     call fn_find_tok
     test rax, rax
     jz .undef_fn
-    mov [rbp - 16], rax                  ; 函数记录
+    mov [rbp - 16], rax                  ; function record
 
     mov rax, [rbp - 8]
     mov rdx, [rax + ND_B]
@@ -951,7 +951,7 @@ gen_expr:
     mov rax, [rbp - 16]
     cmp ecx, [rax + FN_ARITY]
     je .arity_ok
-    mov rdi, [rbp - 16]                  ; 记录不能当 Token 用
+    mov rdi, [rbp - 16]                  ; a record cannot be used as a Token
     mov rdi, [rbp - 8]
     mov rdi, [rdi + ND_A]
     lea rsi, [rel m_arity]
@@ -1022,7 +1022,7 @@ gen_expr:
     call emit_sub_rsp
     inc dword [rel cg_depth]
 .no_pad:
-    ; 取调用名 Token 信息
+    ; get the callee name Token information
     mov rax, [rbp - 8]
     mov rax, [rax + ND_A]
     mov [rbp - 88], rax
@@ -1145,7 +1145,7 @@ gen_expr:
     jmp .done
 
 ; writefile(path:^u8, pathlen:i64, data:^u8, len:i64) -> i64
-; 路径按 ANSI/UTF-8 单字节传给 CreateFileA；成功返回 1。
+; Paths are passed to CreateFileA as single-byte ANSI/UTF-8; returns 1 on success.
 .writefile_call:
     mov rax, [rbp - 8]
     mov rdx, [rax + ND_B]
@@ -1171,7 +1171,7 @@ gen_expr:
     mov rax, [rax + ND_B]
     mov [rbp - 32], rax
 
-    ; 四个参数依次入栈：path, pathlen, data, len
+    ; Push four arguments in order: path, pathlen, data, len
     mov rax, [rbp - 32]
     mov rdi, [rax + ND_A]
     call gen_expr
@@ -1201,10 +1201,10 @@ gen_expr:
     call gen_expr
     call emit_push_rax
 
-    ; 影子空间 + 三个栈参数
+    ; shadow space + three stack arguments
     mov edi, 0x40
     call emit_sub_rsp
-    ; mov rcx,[rsp+0x58]  路径
+    ; mov rcx,[rsp+0x58]  path
     mov eax, 0x48
     call cb_b
     mov eax, 0x8B
@@ -1358,7 +1358,7 @@ gen_expr:
 
     mov edi, 0x38
     call emit_add_rsp
-    mov eax, 0x50                       ; push rax（生成代码，保存 WriteFile 返回值）
+    mov eax, 0x50                       ; push rax (generated code, save WriteFile return value)
     call cb_b
     ; rcx = [rsp+8] handle
     mov eax, 0x48
@@ -1382,14 +1382,14 @@ gen_expr:
     call emit_rip
     mov edi, 0x20
     call emit_add_rsp
-    mov eax, 0x58                       ; pop rax（取回 WriteFile 返回值）
+    mov eax, 0x58                       ; pop rax (recover WriteFile return value)
     call cb_b
     mov edi, 8
     call emit_add_rsp
     jmp .done
 
 ; readfile(path:^u8, pathlen:i64, buf:^u8, maxlen:i64) -> i64
-; 返回实际读到的字节数；失败返回 0。
+; Returns the actual number of bytes read; returns 0 on failure.
 .readfile_call:
     mov rax, [rbp - 8]
     mov rdx, [rax + ND_B]
@@ -1623,7 +1623,7 @@ gen_expr:
     call emit_rip
     mov edi, 0x28
     call emit_add_rsp
-    mov eax, 0x58                       ; pop rax（字节数）
+    mov eax, 0x58                       ; pop rax (byte count)
     call cb_b
     jmp .done
 
@@ -1722,7 +1722,7 @@ emit_push_rax:
     inc dword [rel cg_depth]
     ret
 
-; 以下四个：以 rbp+disp32 为操作数的存取，edx=disp
+; The following four use rbp+disp32 operands, with edx=disp
 emit_st_rax_disp:
     push rdx
     mov eax, 0x48
@@ -1859,7 +1859,7 @@ emit_call_fixup:
     ret
 
 ; emit_fnaddr_fixup(rdi=name, rsi=len, edx=line, ecx=col, r8d=srcoff)
-; 生成 lea rax,[rip+disp]，disp 由函数地址补丁回填
+; emit lea rax,[rip+disp]; disp is backfilled by the function-address patch
 emit_fnaddr_fixup:
     push rbp
     mov rbp, rsp
@@ -1871,7 +1871,7 @@ emit_fnaddr_fixup:
     mov [rbp - 40], r8
     mov rax, [rel sec_len]
     add rax, 3
-    mov [rbp - 48], rax                 ; disp 字段偏移
+    mov [rbp - 48], rax                 ; disp field offset
     mov eax, 0x48
     call cb_b
     mov eax, 0x8D
@@ -1891,7 +1891,7 @@ emit_fnaddr_fixup:
     pop rbp
     ret
 
-; store_local(edx=rbp disp, ecx=类型)：把 rax 写入 [rbp+disp]
+; store_local(edx=rbp disp, ecx=type): write rax to [rbp+disp]
 store_local:
     push rbp
     mov rbp, rsp
@@ -1969,7 +1969,7 @@ load_local:
     pop rbp
     ret
 
-; gen_struct_fields(edi=结构体类型, edx=基址 disp, rsi=字段初始化链)
+; gen_struct_fields(edi=struct type, edx=base disp, rsi=field initializer chain)
 gen_struct_fields:
     push rbp
     mov rbp, rsp
@@ -1989,7 +1989,7 @@ gen_struct_fields:
     jz .next
     mov edx, [rax + SF_OFF]
     add edx, [rbp - 16]
-    mov [rbp - 40], edx                 ; 字段地址 disp
+    mov [rbp - 40], edx                 ; field address disp
     mov ecx, [rax + SF_TYPE]
     mov [rbp - 44], ecx
     mov rax, [rbp - 32]
@@ -2008,7 +2008,7 @@ gen_struct_fields:
     pop rbp
     ret
 
-; gen_init_to(edi=声明类型, edx=disp, rdi=初始化表达式)
+; gen_init_to(edi=declared type, edx=disp, rdi=initializer expression)
 gen_init_to:
     push rbp
     mov rbp, rsp
@@ -2022,7 +2022,7 @@ gen_init_to:
     je .struct
     cmp eax, NK_ARRAYLIT
     je .array
-    ; 标量
+    ; scalar
     mov rdi, [rbp - 24]
     call gen_expr
     mov edx, [rbp - 16]
@@ -2045,10 +2045,10 @@ gen_init_to:
     jz .scalar
     mov edi, eax
     call elem_type
-    mov [rbp - 32], eax                 ; 元素类型
+    mov [rbp - 32], eax                 ; element type
     mov edi, eax
     call type_size
-    mov [rbp - 36], eax                 ; 元素大小
+    mov [rbp - 36], eax                 ; element size
     mov rax, [rbp - 24]
     mov rax, [rax + ND_B]
     mov [rbp - 48], rax
@@ -2062,7 +2062,7 @@ gen_init_to:
     mov ecx, [rbp - 36]
     imul eax, ecx
     add eax, [rbp - 16]
-    mov [rbp - 80], eax                 ; 元素 disp
+    mov [rbp - 80], eax                 ; element disp
     mov rax, [rbp - 72]
     mov rsi, rax
     mov edi, [rbp - 32]
@@ -2084,7 +2084,7 @@ gen_init_to:
     pop rbp
     ret
 
-; ------------------------------ 语句生成 ----------------------------------
+; ------------------------------ statement generation -----------------------
 ; gen_stmt(rdi=node)
 gen_stmt:
     push rbp
@@ -2109,10 +2109,10 @@ gen_stmt:
     jmp .done
 
 .let:
-    ; 计算本变量字节大小并分配帧内空间
+    ; Compute this variable's byte size and allocate frame space
     mov rax, [rbp - 8]
     mov rax, [rax + ND_C]
-    mov [rbp - 48], eax                  ; 声明类型
+    mov [rbp - 48], eax                  ; declared type
     mov edi, eax
     call type_size
     test eax, eax
@@ -2124,7 +2124,7 @@ gen_stmt:
     add ecx, eax
     mov [rel next_off], ecx
     neg ecx
-    mov [rbp - 16], ecx                  ; 本变量 disp
+    mov [rbp - 16], ecx                  ; this variable's disp
     mov dword [rel cg_no_fnval], 1
     mov rax, [rbp - 8]
     mov rsi, [rax + ND_B]
@@ -2132,7 +2132,7 @@ gen_stmt:
     mov edx, [rbp - 16]
     call gen_init_to
     mov dword [rel cg_no_fnval], 0
-    ; 重名检查
+    ; duplicate-name check
     mov rax, [rbp - 8]
     mov rax, [rax + ND_A]
     mov [rbp - 24], rax
@@ -2157,7 +2157,7 @@ gen_stmt:
     mov edx, [rbp - 16]
     mov rax, [rbp - 8]
     mov rax, [rax + ND_C]
-    mov ecx, eax                         ; 声明的类型码
+    mov ecx, eax                         ; declared type code
     call local_add
     jmp .done
 
@@ -2206,7 +2206,7 @@ gen_stmt:
     jmp .block_loop
 
 .assign:
-    ; 赋值：左值地址存 cg_scr1，旧值存 cg_scr2，右值在 rax
+    ; Assignment: store lvalue address in cg_scr1, old value in cg_scr2, rhs in rax
     mov rax, [rbp - 8]
     mov rax, [rax + ND_C]
     mov eax, [rax + TK_KIND]
@@ -2225,7 +2225,7 @@ gen_stmt:
     mov eax, [rbp - 56]
     cmp eax, TK_ASSIGN
     je .assign_rhs
-    ; 若右值已是脱糖后的二元表达式，则按普通赋值处理
+    ; If the rhs is already a desugared binary expression, treat it as a normal assignment
     mov rax, [rbp - 8]
     mov rax, [rax + ND_B]
     cmp dword [rax + ND_KIND], NK_BIN
@@ -2233,7 +2233,7 @@ gen_stmt:
     mov dword [rbp - 56], TK_ASSIGN
     jmp .assign_rhs
 .assign_compound:
-    ; 复合：读旧值到 rax，存 cg_scr2
+    ; compound: load old value into rax and store it in cg_scr2
     mov edx, [rel cg_scr1]
     call emit_ld_rax_disp
     cmp dword [rbp - 48], 8
@@ -2270,14 +2270,14 @@ gen_stmt:
     mov eax, [rbp - 56]
     cmp eax, TK_ASSIGN
     je .assign_simple
-    mov eax, 0x49                       ; mov r8,rax（右值）
+    mov eax, 0x49                       ; mov r8,rax (rhs)
     call cb_b
     mov eax, 0x89
     call cb_b
     mov eax, 0xC0
     call cb_b
     mov edx, [rel cg_scr2]
-    call emit_ld_rax_disp               ; 旧值
+    call emit_ld_rax_disp               ; old value
     mov eax, 0x4C                       ; add rax,r8
     call cb_b
     mov eax, 0x01
@@ -2294,7 +2294,7 @@ gen_stmt:
     mov eax, 0xC0
     call cb_b
     mov edx, [rel cg_scr1]
-    call emit_ld_r9_disp                ; 地址 -> r9
+    call emit_ld_r9_disp                ; address -> r9
     cmp dword [rbp - 48], 8
     je .st8
     cmp dword [rbp - 48], 4
@@ -2326,7 +2326,7 @@ gen_stmt:
     mov rax, [rbp - 8]
     mov rdi, [rax + ND_A]
     mov rax, [rel sec_len]
-    mov [rbp - 24], rax                 ; 循环顶部
+    mov [rbp - 24], rax                 ; loop top
     call gen_expr
     ; test rax,rax
     mov eax, 0x48
@@ -2402,7 +2402,7 @@ gen_stmt:
     pop rbp
     ret
 
-; count_let_bytes(rdi=语句链首) -> eax=所有嵌套 let 的字节总和
+; count_let_bytes(rdi=first statement in chain) -> eax=total bytes of all nested lets
 count_let_bytes:
     push rbp
     mov rbp, rsp
@@ -2471,7 +2471,7 @@ count_let_bytes:
     pop rbp
     ret
 
-; ------------------------------ 函数生成 ----------------------------------
+; ------------------------------ function generation -------------------------
 ; gen_fn(rdi=fn record)
 gen_fn:
     push rbp
@@ -2483,26 +2483,26 @@ gen_fn:
     mov dword [rel next_off], 0
     mov rax, [rbp - 8]
     mov eax, [rax + FN_ARITY]
-    mov [rbp - 28], eax                  ; 参数个数
+    mov [rbp - 28], eax                  ; parameter count
 
-    ; 记录代码偏移
+    ; record code offset
     mov rax, [rel sec_len]
     mov rdx, [rbp - 8]
     mov [rdx + FN_OFF], eax
 
-    ; 统计所有嵌套语句里的 let 占用字节
+    ; Count bytes occupied by lets across all nested statements
     mov rax, [rbp - 8]
     mov rax, [rax + FN_NODE]
     mov rax, [rax + ND_C]
     mov rdi, [rax + ND_A]
     call count_let_bytes
-    mov [rbp - 16], eax                  ; let 字节总数
+    mov [rbp - 16], eax                  ; total let bytes
 
     mov eax, [rbp - 28]
     shl eax, 3
     add eax, [rbp - 16]
-    mov [rbp - 32], eax                  ; 变量区总字节
-    add eax, 64                          ; 影子空间 + 临时槽 + 余量
+    mov [rbp - 32], eax                  ; total variable-area bytes
+    add eax, 64                          ; shadow space + temporary slots + margin
     add eax, 15
     and eax, ~15
     cmp eax, 0x30
@@ -2510,7 +2510,7 @@ gen_fn:
     mov eax, 0x30
 .frame_ok:
     mov [rbp - 24], eax                  ; frame
-    ; 赋值临时槽：紧随局部变量之后
+    ; assignment temporary slot: immediately after locals
     mov eax, [rbp - 32]
     add eax, 8
     neg eax
@@ -2520,7 +2520,7 @@ gen_fn:
     neg eax
     mov [rel cg_scr2], eax
 
-    ; 序言
+    ; prologue
     mov eax, 0x55
     call cb_b
     mov eax, 0x48
@@ -2532,7 +2532,7 @@ gen_fn:
     mov edi, [rbp - 24]
     call emit_sub_rsp
 
-    ; 参数入栈槽
+    ; parameter stack slots
     mov rax, [rbp - 8]
     mov rax, [rax + FN_NODE]
     mov rax, [rax + ND_B]
@@ -2556,13 +2556,13 @@ gen_fn:
     add eax, 8
     mov [rel next_off], eax
     neg eax
-    mov [rbp - 44], eax                  ; 参数 disp
+    mov [rbp - 44], eax                  ; parameter disp
     mov edx, eax
     mov rax, [rbp - 32]
     mov rax, [rax + ND_C]
-    mov ecx, eax                         ; 参数声明类型
+    mov ecx, eax                         ; parameter declared type
     call local_add
-    ; 存寄存器
+    ; save registers
     mov eax, [rbp - 40]
     lea rdx, [rel param_regs]
     movzx esi, byte [rdx + rax]
@@ -2576,7 +2576,7 @@ gen_fn:
     jmp .param_loop
 .params_done:
 
-    ; 函数体
+    ; function body
     mov rax, [rbp - 8]
     mov rax, [rax + FN_NODE]
     mov rax, [rax + ND_C]
@@ -2593,7 +2593,7 @@ gen_fn:
     mov [rbp - 32], rax
     jmp .body_loop
 .body_done:
-    ; 落空返回 0
+    ; fall through: return 0
     mov eax, 0x31
     call cb_b
     mov eax, 0xC0
@@ -2613,7 +2613,7 @@ gen_fn:
     pop rbp
     ret
 
-; ------------------------------ 入口 --------------------------------------
+; ------------------------------ entry --------------------------------------
 emit_entry:
     push rbp
     mov rbp, rsp
@@ -2674,7 +2674,7 @@ emit_entry:
     pop rbp
     ret
 
-; ------------------------------ 回填 --------------------------------------
+; ------------------------------ backfill -----------------------------------
 resolve_fixups:
     push rbp
     mov rbp, rsp
@@ -2725,7 +2725,7 @@ resolve_fixups:
     pop rbp
     ret
 
-; ------------------------------ PE 写出 -----------------------------------
+; ------------------------------ PE output ----------------------------------
 put16:
     lea rax, [rel hdr_buf]
     mov [rax + rdi], si
@@ -2778,7 +2778,7 @@ pe_build_header:
     mov esi, 0x0023
     call put16
 
-    ; 可选头
+    ; optional header
     mov edi, 0x58
     mov esi, 0x020B
     call put16
@@ -2874,7 +2874,7 @@ pe_build_header:
     mov esi, 40
     call put32
 
-    ; 节表
+    ; section table
     lea rax, [rel hdr_buf]
     mov rcx, 0x000000747865742E      ; ".text\0\0\0"
     mov [rax + 0x148], rcx
@@ -2926,18 +2926,18 @@ pe_write:
     jz .fail
     mov [rbp - 32], rax
 
-    ; 头部
+    ; header
     lea rsi, [rel hdr_buf]
     mov rdi, rax
     mov ecx, HDR_SIZE
     rep movsb
-    ; 节内容
+    ; section contents
     mov rdi, [rbp - 32]
     add rdi, HDR_SIZE
     mov rsi, [rel sec_buf]
     mov rcx, [rel sec_len]
     rep movsb
-    ; 补零
+    ; zero padding
     mov rcx, [rbp - 16]
     sub rcx, [rel sec_len]
     xor eax, eax
@@ -2956,7 +2956,7 @@ pe_write:
     pop rbp
     ret
 
-; ------------------------------ 总入口 ------------------------------------
+; ------------------------------ main entry --------------------------------
 cg_run:
     push rbp
     mov rbp, rsp
@@ -2967,7 +2967,7 @@ cg_run:
     mov rdi, [rbp - 8]
     call collect_functions
 
-    ; 必须有 main
+    ; main is required
     lea rdi, [rel s_main]
     mov esi, 4
     call fn_find
@@ -3004,7 +3004,7 @@ cg_run:
     pop rbp
     ret
 
-; ------------------------------ 常量 --------------------------------------
+; ------------------------------ constants ----------------------------------
 str_kernel32:   db "KERNEL32.dll", 0
 str_getstd:     db "GetStdHandle", 0
 str_writefile:  db "WriteFile", 0

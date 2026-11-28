@@ -1,6 +1,6 @@
 // EXPECT stdout:120
 // EXPECT exit:0
-// 生成程序写入文件后再读回：readlen=5, first=70
+// A generated program writes a file, then reads it back: readlen=5, first=70
 
 fn main() -> i64 {
     let path: ^u8 = alloc(64, 8);

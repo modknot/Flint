@@ -1,6 +1,6 @@
 // EXPECT stdout:7
 // EXPECT exit:0
-// 最小代码生成骨架：AST -> 字节码缓冲 -> 栈式虚拟机执行。
+// Minimal codegen skeleton: AST -> bytecode buffer -> stack VM execution.
 struct Node {
     kind: i64,
     val: i64,

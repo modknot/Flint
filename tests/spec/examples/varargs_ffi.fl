@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE varargs_ffi
-// 期望: 7（走 C ABI 的变参调用，仅 extern "C" 允许 ...）
+// Expect: 7 (C ABI varargs call; ... allowed only in extern "C")
 extern "C" {
     fn printf(fmt: ^ro byte, ...) -> i32;
 }

@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE outcome
-// 期望: 5（Outcome 为核心枚举，无异常、无栈展开）
+// Expect: 5 (Outcome is a core enum; no exceptions, no stack unwinding)
 fn div(a: i64, b: i64) -> Outcome[i64, i64] {
     if b == 0 { return Outcome::err(1); }
     return Outcome::ok(a / b);

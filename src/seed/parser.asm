@@ -1,9 +1,9 @@
 ; ===========================================================================
-; 语法分析（阶段 0）：递归下降 + Pratt 表达式，单一优先级表
-; 产物：NK_PROGRAM 根节点；语法错误按语句/函数边界同步恢复。
+; Parsing (stage 0): recursive descent + Pratt expressions, single precedence table.
+; Output: NK_PROGRAM root; syntax errors recover at statement/function boundaries.
 ; ===========================================================================
 
-; ------------------------------ 节点构造 ----------------------------------
+; ------------------------------ node construction --------------------------
 ; node_new(edi=kind, esi=line, edx=col) -> rax
 node_new:
     push rbp
@@ -45,7 +45,7 @@ node_tok:
     pop rbp
     ret
 
-; ------------------------------ 基础操作 ----------------------------------
+; ------------------------------ basic operations ---------------------------
 adv:
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_EOF
@@ -134,13 +134,13 @@ check_i64:
     pop rbp
     ret
 
-; parse_type -> eax=类型码（TY_*），并消费类型 Token
+; parse_type -> eax=type code (TY_*), consuming the type Token
 parse_type:
     push rbp
     mov rbp, rsp
     sub rsp, 0x40
-    mov dword [rbp - 16], 0             ; 基础类型码
-    mov dword [rbp - 20], 0             ; 前缀修饰（指针）
+    mov dword [rbp - 16], 0             ; base type code
+    mov dword [rbp - 20], 0             ; prefix modifier (pointer)
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_KW_FN
     je .fn_sig
@@ -204,7 +204,7 @@ parse_type:
 .array_type:
     call adv
     call parse_type
-    mov [rbp - 16], eax                 ; 元素类型
+    mov [rbp - 16], eax                 ; element type
     lea rsi, [rel m_expect_semi]
     mov edx, m_expect_semi_len
     mov edi, TK_SEMI
@@ -232,7 +232,7 @@ parse_type:
     jmp .done
 
 .fn_sig:
-    call adv                            ; 吃掉 fn
+    call adv                            ; consume fn
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_LPAREN
     jne .bad
@@ -257,7 +257,7 @@ parse_type:
     cmp dword [rax + TK_KIND], TK_ARROW
     jne .fn_no_ret
     call adv
-    call parse_type                     ; 返回类型（暂不参与类型码）
+    call parse_type                     ; return type (not part of the type code yet)
 .fn_no_ret:
     mov dword [rbp - 16], TY_FN
     jmp .fin
@@ -306,7 +306,7 @@ sync_stmt:
     pop rbp
     ret
 
-; sync_fn: 跳到下一个 fn
+; sync_fn: skip to the next fn
 sync_fn:
     push rbp
     mov rbp, rsp
@@ -325,7 +325,7 @@ sync_fn:
     pop rbp
     ret
 
-; ------------------------------ 表达式 ------------------------------------
+; ------------------------------ expressions --------------------------------
 ; parse_expr(edi=min_bp) -> rax=node
 parse_expr:
     push rbp
@@ -416,7 +416,7 @@ parse_expr:
     cmp eax, [rbp - 8]
     jle .done
 
-    mov [rbp - 24], r10                ; 运算符 Token
+    mov [rbp - 24], r10                ; operator Token
     call adv
     mov r10, [rbp - 24]
     mov ecx, [r10 + TK_KIND]
@@ -464,7 +464,7 @@ parse_prefix:
     cmp ecx, TK_MINUS
     je .neg
 
-    ; 语法错误：跳过当前 Token，产出占位字面量
+    ; Syntax error: skip the current Token and emit a placeholder literal
     mov rdi, [rel ps_cur]
     lea rsi, [rel m_syntax]
     mov edx, m_syntax_len
@@ -503,7 +503,7 @@ parse_prefix:
     cmp dword [rax + TK_KIND], TK_LPAREN
     jne .ident_maybe_struct
     mov rdi, [rbp - 8]
-    call parse_call                     ; 返回 rax
+    call parse_call                     ; returns rax
     mov rsp, rbp
     pop rbp
     ret
@@ -545,8 +545,8 @@ parse_prefix:
 
 .arraylit:
     call adv
-    mov qword [rbp - 8], 0               ; 元素首
-    mov qword [rbp - 16], 0              ; 元素尾
+    mov qword [rbp - 8], 0               ; first element
+    mov qword [rbp - 16], 0              ; last element
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_RBRACKET
     je .arraylit_done
@@ -603,7 +603,7 @@ parse_prefix:
     pop rbp
     ret
 
-; parse_struct_lit(rdi=结构体名 Token) -> rax=NK_STRUCTLIT
+; parse_struct_lit(rdi=struct name Token) -> rax=NK_STRUCTLIT
 parse_struct_lit:
     push rbp
     mov rbp, rsp
@@ -612,17 +612,17 @@ parse_struct_lit:
     call st_find_tok
     test rax, rax
     jz .bad
-    mov [rbp - 16], rax                 ; 结构体记录
+    mov [rbp - 16], rax                 ; struct record
     mov eax, [rax + ST_ID]
     or eax, TY_STRUCT
-    mov [rbp - 24], eax                 ; 类型码
+    mov [rbp - 24], eax                 ; type code
     mov rax, [rel ps_cur]
     lea rsi, [rel m_expect_lbrace]
     mov edx, m_expect_lbrace_len
     mov edi, TK_LBRACE
     call expect
-    mov qword [rbp - 32], 0             ; 字段首
-    mov qword [rbp - 40], 0             ; 字段尾
+    mov qword [rbp - 32], 0             ; first field
+    mov qword [rbp - 40], 0             ; last field
 .field_loop:
     mov rax, [rel ps_cur]
     mov ecx, [rax + TK_KIND]
@@ -632,7 +632,7 @@ parse_struct_lit:
     je .fields_done
     cmp ecx, TK_IDENT
     jne .skip
-    mov [rbp - 48], rax                 ; 字段名 Token
+    mov [rbp - 48], rax                 ; field name Token
     call adv
     lea rsi, [rel m_expect_colon]
     mov edx, m_expect_colon_len
@@ -640,7 +640,7 @@ parse_struct_lit:
     call expect
     mov edi, 0
     call parse_expr
-    mov [rbp - 56], rax                 ; 值表达式
+    mov [rbp - 56], rax                 ; value expression
     mov rsi, [rbp - 48]
     mov edi, NK_ASSIGN
     call node_tok
@@ -760,8 +760,8 @@ parse_call:
     pop rbp
     ret
 
-; ------------------------------ 语句 --------------------------------------
-; parse_block: 当前 Token 为 '{' -> rax=NK_BLOCK
+; ------------------------------ statements --------------------------------
+; parse_block: current Token is '{' -> rax=NK_BLOCK
 parse_block:
     push rbp
     mov rbp, rsp
@@ -814,7 +814,7 @@ parse_block:
     pop rbp
     ret
 
-; parse_stmt -> rax=node（失败返回 0）
+; parse_stmt -> rax=node (returns 0 on failure)
 parse_stmt:
     push rbp
     mov rbp, rsp
@@ -873,7 +873,7 @@ parse_stmt:
     pop rbp
     ret
 
-; parse_while -> NK_WHILE：当前为 'while'
+; parse_while -> NK_WHILE: current Token is 'while'
 parse_while:
     push rbp
     mov rbp, rsp
@@ -896,7 +896,7 @@ parse_while:
     pop rbp
     ret
 
-; parse_if -> NK_IF：当前为 'if'
+; parse_if -> NK_IF: current Token is 'if'
 parse_if:
     push rbp
     mov rbp, rsp
@@ -994,7 +994,7 @@ parse_let:
     mov edx, m_expect_colon_len
     mov edi, TK_COLON
     call expect
-    mov qword [rbp - 16], 0               ; 类型码
+    mov qword [rbp - 16], 0               ; type code
     mov rax, [rel ps_cur]
     mov ecx, [rax + TK_KIND]
     cmp ecx, TK_CARET
@@ -1068,14 +1068,15 @@ parse_return:
     pop rbp
     ret
 
-; parse_expr_or_assign：IDENT 开头，可能是赋值（含索引左值）或表达式语句
+; parse_expr_or_assign: starts with IDENT; may be an assignment (including an
+; indexed lvalue) or an expression statement
 parse_expr_or_assign:
     push rbp
     mov rbp, rsp
     sub rsp, 0x50
     mov edi, 0
     call parse_expr
-    mov [rbp - 8], rax                   ; 左值或表达式
+    mov [rbp - 8], rax                   ; lvalue or expression
     mov rax, [rel ps_cur]
     mov ecx, [rax + TK_KIND]
     cmp ecx, TK_ASSIGN
@@ -1084,7 +1085,7 @@ parse_expr_or_assign:
     je .assign
     cmp ecx, TK_MINUS_ASSIGN
     je .assign
-    ; 表达式语句
+    ; expression statement
     lea rsi, [rel m_expect_semi]
     mov edx, m_expect_semi_len
     mov edi, TK_SEMI
@@ -1097,7 +1098,7 @@ parse_expr_or_assign:
     mov [rax + ND_A], rdx
     jmp .done
 .assign:
-    mov [rbp - 16], rax                  ; 运算符 Token
+    mov [rbp - 16], rax                  ; operator Token
     call adv
     mov edi, 0
     call parse_expr
@@ -1106,7 +1107,7 @@ parse_expr_or_assign:
     mov edx, m_expect_semi_len
     mov edi, TK_SEMI
     call expect
-    ; += / -= 在语法层脱糖为 x = x + y / x = x - y
+    ; += / -= desugar at parse time to x = x + y / x = x - y
     mov rax, [rbp - 16]
     mov eax, [rax + TK_KIND]
     cmp eax, TK_ASSIGN
@@ -1160,7 +1161,7 @@ parse_expr_stmt:
     pop rbp
     ret
 
-; sync_param: 参数列表内恢复，停在 , ) { EOF
+; sync_param: recover inside a parameter list, stopping at , ) { EOF
 sync_param:
     push rbp
     mov rbp, rsp
@@ -1183,8 +1184,8 @@ sync_param:
     pop rbp
     ret
 
-; ------------------------------ 函数 --------------------------------------
-; parse_fn: 当前为 'fn' -> rax=NK_FN 或 0
+; ------------------------------ functions ----------------------------------
+; parse_fn: current Token is 'fn' -> rax=NK_FN or 0
 parse_fn:
     push rbp
     mov rbp, rsp
@@ -1194,7 +1195,7 @@ parse_fn:
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_IDENT
     jne .no_name
-    mov [rbp - 8], rax                    ; 名字 Token
+    mov [rbp - 8], rax                    ; name Token
     call adv
     jmp .name_ok
 .no_name:
@@ -1213,8 +1214,8 @@ parse_fn:
     mov edi, TK_LPAREN
     call expect
 
-    mov qword [rbp - 16], 0               ; 参数首
-    mov qword [rbp - 24], 0               ; 参数尾
+    mov qword [rbp - 16], 0               ; first parameter
+    mov qword [rbp - 24], 0               ; last parameter
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_RPAREN
     je .params_done
@@ -1333,7 +1334,7 @@ parse_fn:
     pop rbp
     ret
 
-; ------------------------------ 顶层 --------------------------------------
+; ------------------------------ top level ----------------------------------
 ; parse_run(rdi=token*, rsi=count) -> rax=NK_PROGRAM
 parse_run:
     push rbp
@@ -1346,9 +1347,9 @@ parse_run:
     mov edx, 1
     mov edi, NK_PROGRAM
     call node_new
-    mov [rbp - 8], rax                    ; 根
-    mov qword [rbp - 16], 0               ; 首函数
-    mov qword [rbp - 24], 0               ; 尾函数
+    mov [rbp - 8], rax                    ; root
+    mov qword [rbp - 16], 0               ; first function
+    mov qword [rbp - 24], 0               ; last function
 
 .loop:
     mov rax, [rel ps_cur]
@@ -1389,8 +1390,8 @@ parse_run:
     pop rbp
     ret
 
-; ------------------------------ 结构体声明 --------------------------------
-; 当前为 struct 关键字；解析字段并登记结构体表
+; ------------------------------ struct declarations -------------------------
+; Current Token is the struct keyword; parse fields and register the struct table
 parse_struct:
     push rbp
     mov rbp, rsp
@@ -1399,7 +1400,7 @@ parse_struct:
     mov rax, [rel ps_cur]
     cmp dword [rax + TK_KIND], TK_IDENT
     jne .bad_name
-    mov [rbp - 8], rax                  ; 结构体名 Token
+    mov [rbp - 8], rax                  ; struct name Token
     mov rdi, rax
     call tok_text
     mov [rbp - 16], rax
@@ -1414,7 +1415,7 @@ parse_struct:
     mov rdi, [rbp - 16]
     mov rsi, [rbp - 24]
     call st_add
-    mov [rbp - 32], rax                 ; 结构体记录
+    mov [rbp - 32], rax                 ; struct record
 .field_loop:
     mov rax, [rel ps_cur]
     mov ecx, [rax + TK_KIND]
@@ -1424,7 +1425,7 @@ parse_struct:
     je .fields_done
     cmp ecx, TK_IDENT
     jne .field_skip
-    mov [rbp - 40], rax                 ; 字段名 Token
+    mov [rbp - 40], rax                 ; field name Token
     call adv
     lea rsi, [rel m_expect_colon]
     mov edx, m_expect_colon_len
@@ -1479,8 +1480,8 @@ parse_struct:
     pop rbp
     ret
 
-; ------------------------------ 结构体表 ----------------------------------
-; st_add(rdi=名字指针, rsi=长度) -> rax=记录
+; ------------------------------ struct table -------------------------------
+; st_add(rdi=name pointer, rsi=length) -> rax=record
 st_add:
     push rbp
     mov rbp, rsp
@@ -1506,7 +1507,7 @@ st_add:
     pop rbp
     ret
 
-; st_find(rdi=名字指针, rsi=长度) -> rax=记录 / 0
+; st_find(rdi=name pointer, rsi=length) -> rax=record / 0
 st_find:
     mov rdx, [rel struct_head]
 .loop:
@@ -1535,7 +1536,7 @@ st_find:
     xor eax, eax
     ret
 
-; st_find_tok(rdi=Token) -> rax=记录 / 0
+; st_find_tok(rdi=Token) -> rax=record / 0
 st_find_tok:
     push rbp
     mov rbp, rsp
@@ -1552,7 +1553,7 @@ st_find_tok:
     pop rbp
     ret
 
-; sf_add(rdi=结构体记录, rsi=字段名指针, edx=长度, ecx=类型) -> eax=偏移
+; sf_add(rdi=struct record, rsi=field name pointer, edx=length, ecx=type) -> eax=offset
 sf_add:
     push rbp
     mov rbp, rsp
@@ -1590,7 +1591,7 @@ sf_add:
     pop rbp
     ret
 
-; sf_find(rdi=结构体记录, rsi=名字指针, edx=长度) -> rax=字段记录 / 0
+; sf_find(rdi=struct record, rsi=name pointer, edx=length) -> rax=field record / 0
 sf_find:
     mov r8, [rdi + ST_FIELDS]
 .loop:
@@ -1619,7 +1620,7 @@ sf_find:
     xor eax, eax
     ret
 
-; sf_find_tok(edi=结构体类型码, rsi=字段名 Token) -> rax=字段记录
+; sf_find_tok(edi=struct type code, rsi=field name Token) -> rax=field record
 sf_find_tok:
     push rbp
     mov rbp, rsp
@@ -1651,7 +1652,7 @@ sf_find_tok:
     pop rbp
     ret
 
-; arr_add(edi=元素类型, esi=元素个数) -> eax=数组类型码
+; arr_add(edi=element type, esi=element count) -> eax=array type code
 arr_add:
     push rbp
     mov rbp, rsp

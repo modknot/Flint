@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE const_eval
-// 期望: 5（数组长度与初始化均为编译期常量）
+// Expect: 5 (array length and initializer are compile-time constants)
 const N: i64 = 4;
 const TABLE: [i64; N] = [1, 2, 3, 4];
 

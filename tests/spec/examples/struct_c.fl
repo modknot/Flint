@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE struct_c
-// 期望: 8（struct c 按 C ABI 布局：u32 + u16 + 2 字节填充）
+// Expect: 8 (struct c uses C ABI layout: u32 + u16 + 2 bytes padding)
 struct c Header {
     magic: u32,
     len: u16,

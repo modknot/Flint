@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE enum_payload
-// 期望: 12（7 + (2+3)）
+// Expect: 12 (7 + (2+3))
 enum Num {
     I(i64),
     Pair{ a: i64, b: i64 },

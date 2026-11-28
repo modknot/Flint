@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE bits_pack
-// 期望: 2（u16 底层，总宽 16 位，无额外填充）
+// Expect: 2 (u16 underlying type, 16 bits total, no extra padding)
 bits Ctrl: u16 {
     en: 1,
     mode: 3,

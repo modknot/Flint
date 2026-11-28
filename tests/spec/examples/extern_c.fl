@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE extern_c
-// 期望: 5（调用 C 的 strlen；str 的 ptr 字段是 ^ro byte）
+// Expect: 5 (calls C strlen; str's ptr field is ^ro byte)
 extern "C" {
     fn strlen(s: ^ro byte) -> u64;
 }

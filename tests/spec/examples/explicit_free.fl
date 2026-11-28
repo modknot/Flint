@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE explicit_free
-// 期望: 3（两次堆分配显式释放）
+// Expect: 3 (two heap allocations, explicitly freed)
 fn main() -> i64 {
     let a: ^i64 = alloc(16, 8) as ^i64;
     let b: ^i64 = alloc(16, 8) as ^i64;

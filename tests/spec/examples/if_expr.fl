@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE if_expr
-// 期望: -1 / 0 / 1
+// Expect: -1 / 0 / 1
 fn classify(n: i64) -> i64 {
     return if n < 0 { -1 } else if n == 0 { 0 } else { 1 };
 }

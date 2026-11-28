@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE generic_struct
-// 期望: 5
+// Expect: 5
 struct Box[T] { v: T }
 
 fn main() -> i64 {

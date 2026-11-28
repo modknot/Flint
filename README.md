@@ -7,24 +7,19 @@ generators, third-party code generators, or an existing VM framework.
 The compiler is built from source at every stage:
 
 ```text
-src/seed/*.asm + bootstrap/asm.ps1 -> flint0 -> flintc -> next flintc -> ...
+src/seed/*.asm + bootstrap/asm.ps1 -> flint0 (cold start only)
+current build/flintc.exe -> next flintc -> fixed point
 ```
-
-The first-generation compiler is checked in as x86-64 assembly source under
-`src/seed/`. `bootstrap/asm.ps1` is the project's own two-pass assembler; it
-turns that source into `build/flint0.exe`. No prebuilt compiler binary, NASM,
-C compiler, linker, or Python interpreter is required. `flint0` then compiles
-`src/flintc` into the first self-hosted stage. Later stages are built by the
-compiler that came before them; from stage 2 onward the compiler expands
-`// include:` itself instead of relying on the PowerShell preprocessor.
 
 ## Status
 
-- Stage 0 acceptance tests: **17 / 17**.
-- Bootstrap gate: **13 / 13** (`bootstrap/gate.ps1`).
-- Next-generation fixed point reached: stage 2, stage 3 and stage 4 are
-  byte-identical (`bootstrap/bootstrap.ps1`). Stage 3 and stage 4 are built from
-  the split `src/flintc` source by the compiler's built-in `// include:` loader.
+- Cold-start stage-0 acceptance tests: **17 / 17** with `build/flint0.exe`
+  (`tests/run_p0.ps1`; legacy seed check, not part of the normal build).
+- Next-generation fixed point reached: the current compiler compiles the split
+  source into a new compiler, that compiler compiles the same source again, and
+  both outputs are byte-identical (`bootstrap/bootstrap.ps1`).
+- The compiler expands `// include:` itself from split sources. Normal builds do
+  not run the PowerShell preprocessor and do not invoke the assembly seed.
 - `flintc` supports `fn`, `let`, `return`, `if/else`, `while`, assignment,
   `+ - * / %`, comparisons, local variables, multiple functions, parameters,
   calls, and recursion.
@@ -32,74 +27,55 @@ compiler that came before them; from stage 2 onward the compiler expands
   indexing, dereference (`.*`), casts (`as u8` / `as i64`), and `+=`.
 - One compiler source produces three target formats:
   **PE32+**, **ELF64**, and **Mach-O 64** for x86-64.
-- The generated sample (`add`, recursive `fact`, and `main`) returns exit code
-  `20` on Windows PE, Linux ELF, and macOS Mach-O.
-- GitHub Actions builds the targets on Windows and runs the generated ELF on
-  Linux and the generated Mach-O on macOS (`macos-15-intel`).
-
-`flintc` writes PE32+, ELF64, and Mach-O files and exits with status 0 on
-success, 1 on a compile failure. The target executable's exit code verifies the
-compiled program itself.
+- The generated sample returns exit code `20` on Windows PE, Linux ELF, and
+  macOS Mach-O.
 
 ## Bootstrap chain
 
-The first-generation compiler is assembly source, not a checked-in executable.
+Normal builds use the compiler that already exists:
 
 ```text
-src/seed/seed.asm + modules
+src/seed/*.asm + bootstrap/asm.ps1
         |
-        |  bootstrap/asm.ps1 (project's own two-pass x86-64 assembler)
+        |  bootstrap/cold-start.ps1 (once, only when build/flintc.exe is absent)
         v
-build/flint0.exe
+build/flintc.exe
         |
-        |  compiles the expanded src/flintc translation unit
+        |  build-flintc.ps1 / bootstrap/bootstrap.ps1
+        |  compiles split src/flintc (built-in include loader)
         v
-build/flintc-stage1.exe
+build/flintc-next1.exe
         |
-        |  compiles the same expanded unit
+        |  compiles the same split source again
         v
-build/flintc-stage2.exe
-        |
-        |  compiles the split src/flintc tree (built-in include loader)
-        v
-build/flintc-stage3.exe
-        |
-        |  compiles the split tree again (built-in include loader)
-        v
-build/flintc-stage4.exe   ==  stage2  ==  stage3   (fixed point)
+build/flintc-next2.exe   ==  flintc-next1.exe   (fixed point)
 ```
 
-`bootstrap/bootstrap.ps1` performs the whole chain and fails unless stage 2,
-stage 3 and stage 4 are byte-identical. The runtime library itself is assembled
-from `src/runtime/runtime.asm` by `bootstrap/gen-runtime.ps1`, which regenerates
-`src/flintc/runtime.fl`; no runtime bytes are copied from an external toolchain.
+`bootstrap/cold-start.ps1` is the only path that assembles the seed and expands
+the translation unit with PowerShell. It installs the first fixed-point
+compiler as `build/flintc.exe`. After that, `build-flintc.ps1` and
+`bootstrap/bootstrap.ps1` compile the compiler with the current compiler.
 
-`build-flintc.ps1` expands `src/flintc/flintc.fl` into one translation unit only
-for the assembly seed and the first self-hosted stages, which cannot read
-`// include:` yet. From stage 2 onward the compiler reads the split tree
-directly; the script compiles stage 2 with the compiler loader into stage 3,
-stage 3 into stage 4, checks the fixed point, and installs stage 3 as
-`build/flintc.exe`. Build outputs stay in `build/` and are never committed.
-
-`flintc` parses native `argc/argv`, reads the input `.fl` file, recursively
-expands `// include:` relative to the including file, and writes the target
-output. With no arguments it keeps the bootstrap defaults
-(`build/flintc.unit.fl` -> `build/flintc-out.exe`).
+The runtime library is assembled from `src/runtime/runtime.asm` by
+`bootstrap/gen-runtime.ps1`, which regenerates `src/flintc/runtime.fl`. Its PE
+import table has nine KERNEL32 entries; `rt_readfile` reads the Win32 byte count
+as a DWORD and zero-extends it, and all Win32 calls keep 16-byte stack alignment.
 
 ## Source layout
 
 ```text
-src/seed/seed.asm          first-generation compiler in x86-64 assembly
-src/seed/*.asm             lexer, parser, codegen, memory, diagnostics, file I/O
+src/seed/seed.asm          cold-start compiler in x86-64 assembly
+src/seed/*.asm             lexer, parser, codegen, memory, diagnostics, file IO
 bootstrap/asm.ps1          project's own two-pass x86-64 assembler
 bootstrap/build-flint0.ps1 assemble seed into build/flint0.exe
-bootstrap/bootstrap.ps1    full seed -> flint0 -> flintc -> fixed point check
+bootstrap/cold-start.ps1   one-time cold start; installs build/flintc.exe
+bootstrap/bootstrap.ps1    current compiler -> next compiler fixed-point check
 bootstrap/gen-runtime.ps1  assemble src/runtime and regenerate runtime.fl
-flintc.ps1                 compatibility front end; the compiler now expands includes itself
-build-flintc.ps1           assemble flint0, bootstrap stage1/stage2, build stage3/stage4
-scripts/flint-source.ps1   bootstrap-only recursive // include: expansion
+flintc.ps1                 compatibility wrapper for -AllTargets
+build-flintc.ps1           current compiler builds the next compiler
+scripts/flint-source.ps1   cold-start-only // include: expansion
 src/flintc/source.fl       compiler-side // include: loader
-src/flintc/flintc.fl       flintc source root; includes the modules below
+src/flintc/flintc.fl       source root; includes the modules below
 src/flintc/common.fl       token/node/local/function/struct structures
 src/flintc/lexer.fl        lexer and keyword table
 src/flintc/parser.fl       AST, types, expressions, statements, calls, structs
@@ -110,7 +86,7 @@ src/flintc/backend_macho.fl Mach-O 64 writer
 src/flintc/main.fl         flintc entry point
 src/runtime/runtime.asm    runtime library assembled into generated programs
 src/flintc/sample.fl       small sample input for the three targets
-bootstrap/                 assembler, flint0 builder, gate, ladder
+bootstrap/                 assembler, cold start, fixed-point check
 tests/                     stage-0 regression and specification examples
 docs/                      design, acceptance, and bootstrap notes
 ```
@@ -121,7 +97,14 @@ Requirements: PowerShell 7. No external assembler, C compiler, linker, or
 package manager is required; the repository carries its own assembler.
 
 ```powershell
-pwsh -NoProfile -File build-flintc.ps1 # build build/flintc.exe from split sources
+pwsh -NoProfile -File build-flintc.ps1
+```
+
+On a fresh machine with no `build/flintc.exe`, run the cold start once:
+
+```powershell
+pwsh -NoProfile -File bootstrap\cold-start.ps1
+pwsh -NoProfile -File build-flintc.ps1
 ```
 
 ## Run
@@ -132,28 +115,29 @@ build\sample.exe   # exit code 20
 pwsh -NoProfile -File flintc.ps1 src\flintc\sample.fl build\sample.exe -AllTargets
 ```
 
-`build\flintc.exe` parses `argc/argv` at runtime, expands `// include:` itself,
-and writes the PE directly; `-AllTargets` is handled by the compatibility
-wrapper, which also copies the ELF64 and Mach-O files. With no arguments the
-compiler keeps the bootstrap defaults (`build/flintc.unit.fl` ->
-`build/flintc-out.exe`), and `bootstrap/bootstrap.ps1` drives the fixed-point
-chain.
+`build\flintc.exe` parses `argc/argv`, expands `// include:` itself, and writes
+the PE directly. `-AllTargets` is handled by the compatibility wrapper, which
+also copies the ELF64 and Mach-O files. With no arguments the compiler keeps the
+bootstrap defaults (`build/flintc.unit.fl` -> `build/flintc-out.exe`).
 
 ## Tests
 
+Normal self-hosted regression:
+
 ```powershell
 pwsh -NoProfile -File bootstrap\bootstrap.ps1
-pwsh -NoProfile -File bootstrap\gate.ps1
-pwsh -NoProfile -File tests\run_p0.ps1
+pwsh -NoProfile -File tests\spec\check_examples.ps1
 pwsh -NoProfile -File tests\run_all.ps1
 ```
 
 Expected results:
 
-- bootstrap gate: `13 / 13`
-- stage-0 acceptance: `17 / 17`
+- bootstrap fixed point: pass
 - specification examples: `46`
 - `run_all`: no hard failures
+
+`tests/run_p0.ps1` is the legacy cold-start acceptance suite and requires
+`build/flint0.exe`. It is not invoked by `run_all` or by the normal build.
 
 ## Language support
 
@@ -179,10 +163,9 @@ Not implemented yet:
 ## Backend notes
 
 - PE: one `.text` section, entry RVA `0x1000`, nine KERNEL32 imports
-  (`GetCommandLineA` was added for native `argc/argv`). The import table and IAT
+  (`GetCommandLineA` supplies native `argc/argv`). The import table and IAT
   occupy RVA `0x30000` upward; the entry stub reserves `0x28` bytes of shadow
-  space before calling `main`, and the exit stub calls `ExitProcess` after the
-  generated code.
+  space before calling `main`, and the exit stub calls `ExitProcess`.
 - ELF64: one `PT_LOAD`, entry `0x400078`, Linux `exit` syscall 60.
 - Mach-O 64: static `__TEXT` / `__DATA` / `__LINKEDIT` segments,
   `LC_UNIXTHREAD` entry at file offset `0x300`, a `0x4000`-byte zero-filled
@@ -194,8 +177,8 @@ Not implemented yet:
 1. String literals, arrays with bounds, globals, and modules.
 2. Port file I/O and the `argc/argv` runtime from Win32 to Linux/macOS syscalls
    so `flintc` can run natively there.
-3. Freeze the stage-one language specification and sign off the ten pending
-   decisions in `docs/p1-spec.md`.
+3. Finalize the stage-one language specification decisions in
+   `docs/p1-spec.md`.
 
 ## Engineering constraints
 
@@ -206,6 +189,7 @@ Not implemented yet:
   overhead.
 - The core grammar stays small; library features stay out of the grammar.
 - Diagnostics must include file, line, column, source excerpt, and a caret.
+- Documentation and code comments are written in English.
 
 ## License
 

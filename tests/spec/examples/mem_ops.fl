@@ -1,5 +1,5 @@
 // SPEC-EXAMPLE mem_ops
-// 期望: 3 / 0
+// Expect: 3 / 0
 fn main() -> i64 {
     let src: [i64; 3] = [3, 5, 7];
     let dst: [i64; 3] = [0, 0, 0];

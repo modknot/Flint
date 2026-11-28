@@ -224,6 +224,7 @@ fn collect_locals(c: ^Ctx, n: ^Node) {
     let s: ^Node = n;
     while s != 0 {
         if s.kind == 93 { local_add(c, s.val, s.start); }
+        if s.kind == 100 { local_add(c, s.val, 0); }
         collect_locals(c, s.body);
         collect_locals(c, s.right);
         s = s.next;
@@ -323,6 +324,8 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             }
         }
         if k == 96 {
+            let old_bn: i64 = c.bn.*;
+            let old_ctn: i64 = c.ctn.*;
             let lp_wh: i64 = c.clen.*;
             gen_expr(c, s.left);
             eb(c, 0x48); eb(c, 0x85); eb(c, 0xC0);
@@ -331,7 +334,55 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             let jp_wh: i64 = emit_jmp(c);
             patch(c, jp_wh, lp_wh);
             let en_wh: i64 = c.clen.*;
+            let ci_wh: i64 = old_ctn;
+            while ci_wh < c.ctn.* { patch(c, c.cts[ci_wh], lp_wh); ci_wh += 1; }
+            let bi_wh: i64 = old_bn;
+            while bi_wh < c.bn.* { patch(c, c.brks[bi_wh], en_wh); bi_wh += 1; }
+            c.bn.* = old_bn;
+            c.ctn.* = old_ctn;
             patch(c, je_wh, en_wh);
+        }
+        if k == 100 {
+            let old_bn: i64 = c.bn.*;
+            let old_ctn: i64 = c.ctn.*;
+            let off_for: i64 = local_find(c, s.val);
+            gen_expr(c, s.left);
+            if off_for != 0 { store_local(c, off_for); }
+            let lp_for: i64 = c.clen.*;
+            load_local(c, off_for);
+            eb(c, 0x50);
+            gen_expr(c, s.right);
+            eb(c, 0x59);
+            eb(c, 0x48); eb(c, 0x39); eb(c, 0xC1);
+            eb(c, 0x0F); eb(c, 0x9C); eb(c, 0xC0);
+            eb(c, 0x0F); eb(c, 0xB6); eb(c, 0xC0);
+            eb(c, 0x48); eb(c, 0x85); eb(c, 0xC0);
+            let je_for: i64 = emit_je(c);
+            gen_stmt(c, s.body);
+            let inc_for: i64 = c.clen.*;
+            let ci_for: i64 = old_ctn;
+            while ci_for < c.ctn.* { patch(c, c.cts[ci_for], inc_for); ci_for += 1; }
+            load_local(c, off_for);
+            eb(c, 0x48); eb(c, 0x83); eb(c, 0xC0); eb(c, 0x01);
+            store_local(c, off_for);
+            let jp_for: i64 = emit_jmp(c);
+            patch(c, jp_for, lp_for);
+            let en_for: i64 = c.clen.*;
+            let bi_for: i64 = old_bn;
+            while bi_for < c.bn.* { patch(c, c.brks[bi_for], en_for); bi_for += 1; }
+            c.bn.* = old_bn;
+            c.ctn.* = old_ctn;
+            patch(c, je_for, en_for);
+        }
+        if k == 101 {
+            let jb_break: i64 = emit_jmp(c);
+            c.brks[c.bn.*] = jb_break;
+            c.bn.* = c.bn.* + 1;
+        }
+        if k == 102 {
+            let jb_cont: i64 = emit_jmp(c);
+            c.cts[c.ctn.*] = jb_cont;
+            c.ctn.* = c.ctn.* + 1;
         }
         s = s.next;
     }

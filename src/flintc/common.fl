@@ -82,6 +82,10 @@ struct Ctx {
     arrs: ^Arr,
     ac: ^i64,
     loff: ^i64,
+    brks: ^i64,
+    bn: ^i64,
+    cts: ^i64,
+    ctn: ^i64,
     entry: i64,
 }
 

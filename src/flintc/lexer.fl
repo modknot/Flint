@@ -42,16 +42,22 @@ fn keyword(src: ^u8, o: i64, n: i64) -> i64 {
     if n == 2 {
         if src[o] as i64 == 102 { if src[o + 1] as i64 == 110 { return 3; } }
         if src[o] as i64 == 105 { if src[o + 1] as i64 == 102 { return 6; } }
+        if src[o] as i64 == 105 { if src[o + 1] as i64 == 110 { return 45; } }
         if src[o] as i64 == 97 { if src[o + 1] as i64 == 115 { return 39; } }
     }
     if n == 3 {
         if src[o] as i64 == 108 { if src[o + 1] as i64 == 101 { if src[o + 2] as i64 == 116 { return 4; } } }
+        if src[o] as i64 == 102 { if src[o + 1] as i64 == 111 { if src[o + 2] as i64 == 114 { return 44; } } }
     }
     if n == 4 {
         if src[o] as i64 == 101 { if src[o + 1] as i64 == 108 { if src[o + 2] as i64 == 115 { if src[o + 3] as i64 == 101 { return 7; } } } }
     }
     if n == 5 {
         if src[o] as i64 == 119 { if src[o + 1] as i64 == 104 { if src[o + 2] as i64 == 105 { if src[o + 3] as i64 == 108 { if src[o + 4] as i64 == 101 { return 8; } } } } }
+        if src[o] as i64 == 98 { if src[o + 1] as i64 == 114 { if src[o + 2] as i64 == 101 { if src[o + 3] as i64 == 97 { if src[o + 4] as i64 == 107 { return 47; } } } } }
+    }
+    if n == 8 {
+        if src[o] as i64 == 99 { if src[o + 1] as i64 == 111 { if src[o + 2] as i64 == 110 { if src[o + 3] as i64 == 116 { if src[o + 4] as i64 == 105 { if src[o + 5] as i64 == 110 { if src[o + 6] as i64 == 117 { if src[o + 7] as i64 == 101 { return 48; } } } } } } } }
     }
     if n == 6 {
         if src[o] as i64 == 114 { if src[o + 1] as i64 == 101 { if src[o + 2] as i64 == 116 { if src[o + 3] as i64 == 117 { if src[o + 4] as i64 == 114 { if src[o + 5] as i64 == 110 { return 5; } } } } } }
@@ -192,7 +198,13 @@ fn lex(src: ^u8, n: i64, toks: ^Token) -> i64 {
             if b == 91 { k = 31; i += 1; }
             if b == 93 { k = 32; i += 1; }
             if b == 46 {
-                if i + 1 < n { if src[i + 1] as i64 == 42 { k = 37; i += 2; } else { k = 36; i += 1; } }
+                if i + 1 < n {
+                    if src[i + 1] as i64 == 42 { k = 37; i += 2; }
+                    else {
+                        if src[i + 1] as i64 == 46 { k = 46; i += 2; }
+                        else { k = 36; i += 1; }
+                    }
+                }
                 else { k = 36; i += 1; }
             }
             if b == 43 {

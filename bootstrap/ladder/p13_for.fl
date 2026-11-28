@@ -1,0 +1,10 @@
+// EXPECT stdout:10
+// EXPECT exit:0
+fn main() -> i64 {
+    let sum: i64 = 0;
+    for i in 0..5 {
+        sum += i;
+    }
+    print(sum);
+    return 0;
+}

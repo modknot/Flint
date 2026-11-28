@@ -51,12 +51,17 @@ fn main() -> i64 {
     let arrs: ^Arr = alloc(0x4000, 8);
     let acp: ^i64 = alloc(8, 8); acp.* = 0;
     let loffp: ^i64 = alloc(8, 8); loffp.* = 0;
+    let brks: ^i64 = alloc(0x4000, 8);
+    let bnp: ^i64 = alloc(8, 8); bnp.* = 0;
+    let cts: ^i64 = alloc(0x4000, 8);
+    let ctnp: ^i64 = alloc(8, 8); ctnp.* = 0;
     let c: ^Ctx = alloc(0x100, 8);
     c.toks = toks; c.src = src; c.locals = locals; c.ln = ln; c.pos = pos;
     c.code = code; c.clen = clen; c.rets = rets; c.rn = rn;
     c.funcs = funcs; c.fc = fnp; c.calls = callsp; c.cn = cnp;
     c.structs = structs; c.fields = fields; c.sc = scp; c.fcn = fcn;
     c.arrs = arrs; c.ac = acp; c.loff = loffp;
+    c.brks = brks; c.bn = bnp; c.cts = cts; c.ctn = ctnp;
 
     let prog: ^Node = parse_program(c);
     if prog == 0 { print(12); return 1; }

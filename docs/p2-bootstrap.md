@@ -106,12 +106,14 @@ readfile(path: ^u8, pathlen: i64, buf: ^u8, maxlen: i64) -> i64
 - `flintc` recognizes identifiers, keywords, integers, operators, `^T` pointer
   types, `byte`, character literals, function-pointer types, and fixed array
   types `[T; N]`.
-- It supports `fn`, `let`, `return`, `if/else`, `while`, assignment,
+- It supports `fn`, `let`, `return`, `if/else` (including `else if`), `while`,
+  numeric range loops (`for i in a..b`), `break`/`continue`, assignment,
   `+ - * / %`, comparisons, local variables, multiple functions, parameters,
   calls, recursion, structs and field access, array literals, struct literals,
   and arrays of structs.
-- The bootstrap ladder passes `13 / 13`; `p4_token.fl` and `p7_lexer.fl` exercise
-  struct arrays and byte arrays end to end.
+- The bootstrap ladder passes `15 / 15`; `p4_token.fl` and `p7_lexer.fl` exercise
+  struct arrays and byte arrays end to end, `p13_for.fl` covers range loops,
+  and `p14_flow.fl` covers nested `break`/`continue`.
 - It supports multiple functions, parameters, calls, and recursion. Arguments are passed on the stack; the caller cleans them; the local frame is fixed at `0x400` bytes.
 - Function labels are patched after all functions are generated, so forward calls and self-calls work.
 - The runtime parses `argc/argv` with `GetCommandLineA` on the first `alloc`. `flintc.exe` accepts a `.fl` input and a PE output path. With no arguments it keeps `build/flintc.unit.fl` → `build/flintc-out.exe`.
@@ -121,6 +123,6 @@ readfile(path: ^u8, pathlen: i64, buf: ^u8, maxlen: i64) -> i64
 
 ## Next
 
-- Slices, tuples, enums, unions, `for` loops, `break`/`continue`, and `const`/`static` declarations.
+- Slices, tuples, enums, unions, and `const`/`static` declarations.
 - String literals and a read-only constant pool.
 - Port file IO and `argc/argv` runtime from Win32 to Linux/macOS syscalls so `flintc` runs natively on all three platforms.

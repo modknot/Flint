@@ -26,10 +26,12 @@ current build/flintc.exe -> next flintc -> fixed point
 - It also supports `struct` with field access, pointer indexing, dereference
   (`.*`), casts (`as u8` / `as i64`), `+=`, `byte`, character literals,
   function-pointer types and indirect calls, fixed arrays `[T; N]`, array
-  literals, struct literals, and arrays of structs with per-element field access.
-- The bootstrap ladder passes **13 / 13** (`bootstrap/gate.ps1`). The current
+  literals, struct literals, arrays of structs with per-element field access,
+  half-open numeric loops (`for i in a..b { ... }`), `break`/`continue`,
+  and `else if`.
+- The bootstrap ladder passes **15 / 15** (`bootstrap/gate.ps1`). The current
   fixed point is
-  `2E9A12D8EE99C2EBD7B651200D51B4E732610967702C42E6435C9F294B92A7B3`.
+  `FCBA43EACD03EFF75BFA606B9A3E6E6E057D6466583F187D83C8B6F4828063A6`.
 - One compiler source produces three target formats:
   **PE32+**, **ELF64**, and **Mach-O 64** for x86-64.
 - The generated sample returns exit code `20` on Windows PE, Linux ELF, and

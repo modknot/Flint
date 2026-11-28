@@ -568,6 +568,33 @@ fn expr_type(c: ^Ctx, n: ^Node) -> i64 {
 }
 
 fn parse_stmt(c: ^Ctx) -> ^Node {
+    if peek(c) == 47 {
+        advance(c);
+        expect(c, 15);
+        return new_node(101, 0);
+    }
+    if peek(c) == 48 {
+        advance(c);
+        expect(c, 15);
+        return new_node(102, 0);
+    }
+    if peek(c) == 44 {
+        advance(c);
+        let name_for: i64 = c.pos.*;
+        advance(c);
+        expect(c, 45);
+        let start_for: ^Node = parse_cmp(c);
+        expect(c, 46);
+        let end_for: ^Node = parse_cmp(c);
+        let body_for: ^Node = parse_block(c);
+        let n_for: ^Node = new_node(100, name_for);
+        n_for.start = 0;
+        n_for.left = start_for;
+        n_for.right = end_for;
+        n_for.body = body_for;
+        if peek(c) == 15 { advance(c); }
+        return n_for;
+    }
     let n: ^Node = 0;
     if peek(c) == 4 {
         advance(c);
@@ -591,7 +618,7 @@ fn parse_stmt(c: ^Ctx) -> ^Node {
                 let cond_if: ^Node = parse_cmp(c);
                 let body_if: ^Node = parse_block(c);
                 n = new_node(95, 0); n.left = cond_if; n.body = body_if;
-                if peek(c) == 7 { advance(c); n.right = parse_block(c); }
+                if peek(c) == 7 { advance(c); if peek(c) == 6 { n.right = parse_stmt(c); } else { n.right = parse_block(c); } }
             } else {
                 if peek(c) == 8 {
                     advance(c);

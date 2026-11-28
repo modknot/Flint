@@ -14,6 +14,7 @@ DEFAULT REL
 %define iat_CloseHandle    0x2F028
 %define iat_GetStdHandle   0x2F030
 %define iat_ExitProcess    0x2F038
+%define iat_GetCommandLineA 0x2F040
 
 ; ---------------------------------------------------------------------------
 ; rt_alloc(size, align) -> ptr
@@ -22,6 +23,7 @@ rt_alloc:
     push rbp
     mov rbp, rsp
     sub rsp, 0x30
+    call rt_args_init
     xor ecx, ecx
     mov rdx, [rbp+16]
     mov r8d, 0x3000
@@ -175,5 +177,112 @@ rt_print:
     mov rsp, rbp
     pop rbp
     ret
+
+; ---------------------------------------------------------------------------
+; rt_args_init：第一次 alloc 时把 GetCommandLineA 切成 argv，写入固定数据区。
+; argc/argv 由编译器主程序按生成的地址读取；普通程序不会用到这些槽位。
+; ---------------------------------------------------------------------------
+rt_args_init:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 0x28
+    mov rcx, 0x464C495441524756
+    cmp qword [rel arg_magic], rcx
+    je .done
+
+    call [rel iat_GetCommandLineA]
+    test rax, rax
+    jz .done
+    mov rsi, rax
+
+    xor ecx, ecx
+    mov edx, 0x3000
+    mov r8d, 0x3000
+    mov r9d, 4
+    call [rel iat_VirtualAlloc]
+    test rax, rax
+    jz .done
+    mov r15, rax
+    lea r14, [rax + 0x1000]
+    mov [rel argv_v], r14
+    mov [rel arg_buf_v], r15
+
+    mov rdi, r15
+    xor ebx, ebx
+    xor r12d, r12d
+    xor r13d, r13d
+.loop:
+    movzx eax, byte [rsi]
+    test al, al
+    jz .end
+    cmp al, 34
+    je .quote
+    cmp al, 32
+    je .space
+    cmp al, 9
+    je .space
+    test r12, r12
+    jnz .store
+    mov [r14 + rbx * 8], rdi
+    inc rbx
+    mov r12, 1
+.store:
+    mov [rdi], al
+    inc rdi
+    inc rsi
+    jmp .loop
+.quote:
+    test r12, r12
+    jnz .q_toggle
+    mov [r14 + rbx * 8], rdi
+    inc rbx
+    mov r12, 1
+.q_toggle:
+    xor r13, 1
+    inc rsi
+    jmp .loop
+.space:
+    test r13, r13
+    jnz .store
+    test r12, r12
+    jz .skip
+    mov byte [rdi], 0
+    inc rdi
+    xor r12, r12
+.skip:
+    inc rsi
+    jmp .loop
+.end:
+    test r12, r12
+    jz .finish
+    mov byte [rdi], 0
+.finish:
+    mov [rel argc_v], rbx
+    mov rcx, 0x464C495441524756
+    mov [rel arg_magic], rcx
+.done:
+    add rsp, 0x28
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    pop rbp
+    ret
+
+align 8
+arg_magic: dq 0
+argc_v:    dq 0
+argv_v:    dq 0
+arg_buf_v: dq 0
 
 rt_nl: db 13, 10

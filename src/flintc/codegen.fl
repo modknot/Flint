@@ -288,16 +288,16 @@ fn builtin_find(c: ^Ctx, ti: i64) -> i64 {
     while i < n { s += c.src[p + i]; i += 1; }
     if n == 5 {
         if s == 523 { return 0; }
-        if s == 557 { return 461; }
+        if s == 557 { return 466; }
     }
     if n == 4 {
-        if s == 418 { return 43; }
+        if s == 418 { return 48; }
     }
     if n == 9 {
-        if s == 971 { return 82; }
+        if s == 971 { return 87; }
     }
     if n == 8 {
-        if s == 828 { return 269; }
+        if s == 828 { return 274; }
     }
     return -1;
 }

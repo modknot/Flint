@@ -1,3 +1,9 @@
+fn path_len(p: ^u8) -> i64 {
+    let n: i64 = 0;
+    while p[n] != 0 { n += 1; }
+    return n;
+}
+
 fn main() -> i64 {
     let sample: ^u8 = alloc(64, 8);
     sample[0] = 98;  sample[1] = 117; sample[2] = 105; sample[3] = 108;
@@ -7,8 +13,21 @@ fn main() -> i64 {
     sample[16] = 116; sample[17] = 46; sample[18] = 102; sample[19] = 108;
     sample[20] = 0;
 
+    let mag: ^u64 = 0x140001420;
+    let acp: ^u64 = 0x140001428;
+    let avp: ^u64 = 0x140001430;
+    let in_path: ^u8 = sample;
+    let in_len: i64 = 20;
+    if mag.* == 0x464C495441524756 {
+        if acp.* >= 2 {
+            let tbl: ^u64 = avp.* as ^u64;
+            in_path = tbl[1] as ^u8;
+            in_len = path_len(in_path);
+        }
+    }
+
     let src: ^u8 = alloc(0x20000, 8);
-    let sn: i64 = readfile(sample, 20, src, 0x20000);
+    let sn: i64 = readfile(in_path, in_len, src, 0x20000);
     if sn == 0 { print(11); return 1; }
 
     let toks: ^Token = alloc(0x100000, 8);
@@ -52,10 +71,20 @@ fn main() -> i64 {
     macho_path[13] = 109; macho_path[14] = 97; macho_path[15] = 99;
     macho_path[16] = 104; macho_path[17] = 111; macho_path[18] = 0;
 
+    let out_path: ^u8 = pe_path;
+    let out_len: i64 = 19;
+    if mag.* == 0x464C495441524756 {
+        if acp.* >= 3 {
+            let otbl: ^u64 = avp.* as ^u64;
+            out_path = otbl[2] as ^u8;
+            out_len = path_len(out_path);
+        }
+    }
+
     let buf: ^u8 = alloc(0x31000, 8);
     let ok: i64 = 0;
     let plen: i64 = backend_pe(buf, code, clen.*, c.entry);
-    if save_file(pe_path, 19, buf, plen) == 1 { ok += 1; }
+    if save_file(out_path, out_len, buf, plen) == 1 { ok += 1; }
     if read32(buf, 0) == 0x5A4D { ok += 1; }
     let elen: i64 = backend_elf(buf, code, clen.*, c.entry);
     if save_file(elf_path, 16, buf, elen) == 1 { ok += 1; }

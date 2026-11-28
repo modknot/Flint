@@ -119,12 +119,12 @@ build\sample.exe   # exit code 20
 pwsh -NoProfile -File flintc.ps1 src\flintc\sample.fl build\sample.exe -AllTargets
 ```
 
-`flintc.ps1` is the command-line front end: it expands includes, feeds the
-source to the self-hosted compiler, and copies out the PE. `-AllTargets` also
-copies the ELF64 and Mach-O files. In bootstrap mode `build\flintc.exe` reads
-`build/flintc.unit.fl` and writes `build/flintc-out.exe`; `bootstrap/bootstrap.ps1`
-drives the fixed-point chain. Native `argc/argv` inside `flintc` itself is still
-on the task list.
+`flintc.ps1` expands `// include:` directives, then invokes the self-hosted
+compiler with the input and output paths. `build\flintc.exe` parses `argc/argv`
+at runtime and writes the PE directly; `-AllTargets` also copies the ELF64 and
+Mach-O files. With no arguments the compiler keeps the bootstrap defaults
+(`build/flintc.unit.fl` -> `build/flintc-out.exe`), and
+`bootstrap/bootstrap.ps1` drives the fixed-point chain.
 
 ## Tests
 
@@ -161,15 +161,15 @@ Not implemented yet:
 - string literals
 - arrays with declared bounds and aggregate values
 - global variables and modules
-- command-line input; `build/flintc.unit.fl` is currently fixed
 - relocations, symbol tables, dynamic linking
 
 ## Backend notes
 
-- PE: one `.text` section, entry RVA `0x1000`, eight KERNEL32 imports. The
-  import table and IAT occupy RVA `0x30000` upward; the entry stub reserves
-  `0x28` bytes of shadow space before calling `main`, and the exit stub calls
-  `ExitProcess` after the generated code.
+- PE: one `.text` section, entry RVA `0x1000`, nine KERNEL32 imports
+  (`GetCommandLineA` was added for native `argc/argv`). The import table and IAT
+  occupy RVA `0x30000` upward; the entry stub reserves `0x28` bytes of shadow
+  space before calling `main`, and the exit stub calls `ExitProcess` after the
+  generated code.
 - ELF64: one `PT_LOAD`, entry `0x400078`, Linux `exit` syscall 60.
 - Mach-O 64: static `__TEXT` / `__DATA` / `__LINKEDIT` segments,
   `LC_UNIXTHREAD` entry at file offset `0x300`, a `0x4000`-byte zero-filled
@@ -178,11 +178,11 @@ Not implemented yet:
 
 ## Roadmap
 
-1. Raise compiler buffers and backend capacities so `flintc` can parse its own
-   full source.
-2. Add runtime support for `alloc`, file I/O, and `print` in generated PE/ELF.
-3. Compile `flintc` with `flintc` and validate a fixed-point bootstrap.
-4. Add a native macOS `flintc` once file I/O is ported from Win32 to syscalls.
+1. String literals, arrays with bounds, globals, and modules.
+2. Port file I/O and the `argc/argv` runtime from Win32 to Linux/macOS syscalls
+   so `flintc` can run natively there.
+3. Freeze the stage-one language specification and sign off the ten pending
+   decisions in `docs/p1-spec.md`.
 
 ## Engineering constraints
 

@@ -1,7 +1,7 @@
 # Command-line front end for the self-hosted compiler.
-# The bootstrap compiler currently reads build\flintc.unit.fl and writes
-# build\flintc-out.exe; this script maps a normal input/output command line
-# onto that bootstrap interface. Native argc/argv inside flintc is still TODO.
+# Expands // include: directives, then invokes flintc with the input and output
+# paths. flintc itself parses argc/argv at runtime; this script only performs
+# the include expansion that the compiler does not do yet.
 param(
     [Parameter(Position = 0, Mandatory = $true)]
     [string]$InputFile,
@@ -29,7 +29,6 @@ if (-not (Test-Path -LiteralPath $outputDir)) {
 $build = Join-Path $root 'build'
 $unit = Join-Path $build 'flintc.unit.fl'
 $compiler = Join-Path $build 'flintc.exe'
-$peOut = Join-Path $build 'flintc-out.exe'
 $elfOut = Join-Path $build 'flintc-elf'
 $machoOut = Join-Path $build 'flintc-macho'
 
@@ -41,12 +40,11 @@ if (-not (Test-Path -LiteralPath $compiler)) {
 $expanded = Expand-FlintSource -Path $inputPath
 [IO.File]::WriteAllLines($unit, $expanded, (New-Object System.Text.UTF8Encoding($false)))
 
-Remove-Item $peOut, $elfOut, $machoOut -Force -ErrorAction SilentlyContinue
-& $compiler
+Remove-Item $outputPath, $elfOut, $machoOut -Force -ErrorAction SilentlyContinue
+& $compiler $unit $outputPath
 if ($LASTEXITCODE -ne 0) { throw "flintc compile failed ($LASTEXITCODE)" }
-if (-not (Test-Path -LiteralPath $peOut)) { throw "flintc produced no PE output" }
+if (-not (Test-Path -LiteralPath $outputPath)) { throw "flintc produced no PE output" }
 
-Copy-Item -LiteralPath $peOut -Destination $outputPath -Force
 Write-Host ("[flintc] {0} -> {1}" -f $inputPath, $outputPath)
 
 if ($AllTargets) {

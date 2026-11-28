@@ -31,7 +31,7 @@ current build/flintc.exe -> next flintc -> fixed point
   and `else if`.
 - The bootstrap ladder passes **15 / 15** (`bootstrap/gate.ps1`). The current
   fixed point is
-  `FCBA43EACD03EFF75BFA606B9A3E6E6E057D6466583F187D83C8B6F4828063A6`.
+  `31205001FD455D1409AC6B8577D741B92D0DDC9EB47874C00765CE3867B3875D`.
 - One compiler source produces three target formats:
   **PE32+**, **ELF64**, and **Mach-O 64** for x86-64.
 - The generated sample returns exit code `20` on Windows PE, Linux ELF, and

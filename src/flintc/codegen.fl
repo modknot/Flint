@@ -110,8 +110,8 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
         return;
     }
     if k == 13 {
-        let off: i64 = local_find(c, n.val);
-        if off == 0 {
+        let off_var: i64 = local_find(c, n.val);
+        if off_var == 0 {
             let lbl: i64 = func_find(c, n.val);
             if lbl > 0 {
                 eb(c, 0x48); eb(c, 0x8D); eb(c, 0x05);
@@ -122,14 +122,14 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
                 eb(c, 0x31); eb(c, 0xC0);
             }
         }
-        else { load_local(c, off); }
+        else { load_local(c, off_var); }
         return;
     }
     if k == 14 {
         let ft: i64 = local_type(c, n.val);
         if ft == 4 {
-            let off: i64 = local_find(c, n.val);
-            load_local(c, off);
+            let off_fnptr: i64 = local_find(c, n.val);
+            load_local(c, off_fnptr);
             eb(c, 0x50);
             gen_args(c, n.left);
             let ac_i: i64 = arg_count(n.left);
@@ -324,8 +324,8 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             }
         }
         if k == 96 {
-            let old_bn: i64 = c.bn.*;
-            let old_ctn: i64 = c.ctn.*;
+            let old_bn_w: i64 = c.bn.*;
+            let old_ctn_w: i64 = c.ctn.*;
             let lp_wh: i64 = c.clen.*;
             gen_expr(c, s.left);
             eb(c, 0x48); eb(c, 0x85); eb(c, 0xC0);
@@ -334,17 +334,17 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             let jp_wh: i64 = emit_jmp(c);
             patch(c, jp_wh, lp_wh);
             let en_wh: i64 = c.clen.*;
-            let ci_wh: i64 = old_ctn;
+            let ci_wh: i64 = old_ctn_w;
             while ci_wh < c.ctn.* { patch(c, c.cts[ci_wh], lp_wh); ci_wh += 1; }
-            let bi_wh: i64 = old_bn;
+            let bi_wh: i64 = old_bn_w;
             while bi_wh < c.bn.* { patch(c, c.brks[bi_wh], en_wh); bi_wh += 1; }
-            c.bn.* = old_bn;
-            c.ctn.* = old_ctn;
+            c.bn.* = old_bn_w;
+            c.ctn.* = old_ctn_w;
             patch(c, je_wh, en_wh);
         }
         if k == 100 {
-            let old_bn: i64 = c.bn.*;
-            let old_ctn: i64 = c.ctn.*;
+            let old_bn_f: i64 = c.bn.*;
+            let old_ctn_f: i64 = c.ctn.*;
             let off_for: i64 = local_find(c, s.val);
             gen_expr(c, s.left);
             if off_for != 0 { store_local(c, off_for); }
@@ -360,7 +360,7 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             let je_for: i64 = emit_je(c);
             gen_stmt(c, s.body);
             let inc_for: i64 = c.clen.*;
-            let ci_for: i64 = old_ctn;
+            let ci_for: i64 = old_ctn_f;
             while ci_for < c.ctn.* { patch(c, c.cts[ci_for], inc_for); ci_for += 1; }
             load_local(c, off_for);
             eb(c, 0x48); eb(c, 0x83); eb(c, 0xC0); eb(c, 0x01);
@@ -368,10 +368,10 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
             let jp_for: i64 = emit_jmp(c);
             patch(c, jp_for, lp_for);
             let en_for: i64 = c.clen.*;
-            let bi_for: i64 = old_bn;
+            let bi_for: i64 = old_bn_f;
             while bi_for < c.bn.* { patch(c, c.brks[bi_for], en_for); bi_for += 1; }
-            c.bn.* = old_bn;
-            c.ctn.* = old_ctn;
+            c.bn.* = old_bn_f;
+            c.ctn.* = old_ctn_f;
             patch(c, je_for, en_for);
         }
         if k == 101 {

@@ -545,7 +545,7 @@ fn emit_runtime(c: ^Ctx) {
     eb(c, 76);
     eb(c, 141);
     eb(c, 157);
-    eb(c, 208);
+    eb(c, 224);
     eb(c, 255);
     eb(c, 255);
     eb(c, 255);
@@ -741,7 +741,7 @@ fn emit_runtime(c: ^Ctx) {
     eb(c, 72);
     eb(c, 129);
     eb(c, 236);
-    eb(c, 40);
+    eb(c, 48);
     eb(c, 0);
     eb(c, 0);
     eb(c, 0);
@@ -1071,7 +1071,7 @@ fn emit_runtime(c: ^Ctx) {
     eb(c, 72);
     eb(c, 129);
     eb(c, 196);
-    eb(c, 40);
+    eb(c, 48);
     eb(c, 0);
     eb(c, 0);
     eb(c, 0);

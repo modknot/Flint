@@ -57,11 +57,13 @@ fn gen_addr(c: ^Ctx, n: ^Node) {
         return;
     }
     if k == 16 {
-        gen_expr(c, n.left);
+        let lt_i: i64 = expr_type(c, n.left);
+        if is_array(lt_i) == 1 { gen_addr(c, n.left); }
+        else { gen_expr(c, n.left); }
         eb(c, 0x50);
         gen_expr(c, n.right);
         eb(c, 0x59);
-        let es: i64 = elem_size(c, expr_type(c, n.left));
+        let es: i64 = elem_size(c, lt_i);
         if es == 2 { eb(c, 0x48); eb(c, 0x6B); eb(c, 0xC0); eb(c, 2); }
         if es == 4 { eb(c, 0x48); eb(c, 0x6B); eb(c, 0xC0); eb(c, 4); }
         if es == 8 { eb(c, 0x48); eb(c, 0xC1); eb(c, 0xE0); eb(c, 3); }
@@ -109,11 +111,34 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
     }
     if k == 13 {
         let off: i64 = local_find(c, n.val);
-        if off == 0 { eb(c, 0x31); eb(c, 0xC0); }
+        if off == 0 {
+            let lbl: i64 = func_find(c, n.val);
+            if lbl > 0 {
+                eb(c, 0x48); eb(c, 0x8D); eb(c, 0x05);
+                let disp_fn: i64 = c.clen.*;
+                e32(c, 0);
+                call_add(c, disp_fn, n.val);
+            } else {
+                eb(c, 0x31); eb(c, 0xC0);
+            }
+        }
         else { load_local(c, off); }
         return;
     }
     if k == 14 {
+        let ft: i64 = local_type(c, n.val);
+        if ft == 4 {
+            let off: i64 = local_find(c, n.val);
+            load_local(c, off);
+            eb(c, 0x50);
+            gen_args(c, n.left);
+            let ac_i: i64 = arg_count(n.left);
+            eb(c, 0x4C); eb(c, 0x8B); eb(c, 0x9C); eb(c, 0x24);
+            e32(c, ac_i * 8);
+            eb(c, 0x41); eb(c, 0xFF); eb(c, 0xD3);
+            eb(c, 0x48); eb(c, 0x81); eb(c, 0xC4); e32(c, (ac_i + 1) * 8);
+            return;
+        }
         gen_args(c, n.left);
         eb(c, 0xE8);
         let disp_call: i64 = c.clen.*;
@@ -127,7 +152,9 @@ fn gen_expr(c: ^Ctx, n: ^Node) {
     }
     if k == 16 {
         gen_addr(c, n);
-        let et: i64 = pointee_type(expr_type(c, n.left));
+        let lt_l: i64 = expr_type(c, n.left);
+        let et: i64 = pointee_type(lt_l);
+        if is_array(lt_l) == 1 { et = array_elem_type(c, lt_l); }
         let es: i64 = type_size(c, et);
         if es == 1 { eb(c, 0x0F); eb(c, 0xB6); eb(c, 0x00); }
         else { if es == 8 { eb(c, 0x48); eb(c, 0x8B); eb(c, 0x00); } }
@@ -213,14 +240,61 @@ fn add_params(c: ^Ctx, p: ^Node) {
     }
 }
 
+fn store_at(c: ^Ctx, disp: i64, ty: i64, expr: ^Node) {
+    eb(c, 0x48); eb(c, 0x8D); eb(c, 0x85); e32(c, disp);
+    eb(c, 0x50);
+    gen_expr(c, expr);
+    eb(c, 0x5F);
+    if type_size(c, ty) == 1 { eb(c, 0x88); eb(c, 0x07); }
+    else { eb(c, 0x48); eb(c, 0x89); eb(c, 0x07); }
+}
+
+fn gen_struct_lit_to(c: ^Ctx, sid: i64, base: i64, fields: ^Node) {
+    let f: ^Node = fields;
+    while f != 0 {
+        let fi: i64 = field_find(c, sid, f.val);
+        if fi >= 0 {
+            let fty: i64 = c.fields[fi].ty;
+            let off: i64 = base + c.fields[fi].off;
+            if f.left.kind == 81 {
+                gen_struct_lit_to(c, struct_of_type(f.left.val), off, f.left.left);
+            } else {
+                store_at(c, off, fty, f.left);
+            }
+        }
+        f = f.next;
+    }
+}
+
+fn gen_array_init(c: ^Ctx, base: i64, aty: i64, list: ^Node) {
+    let et: i64 = array_elem_type(c, aty);
+    let es: i64 = type_size(c, et);
+    let i: i64 = 0;
+    let e: ^Node = list;
+    if e != 0 { if e.kind == 80 { e = e.left; } }
+    while e != 0 {
+        if e.kind == 81 {
+            gen_struct_lit_to(c, struct_of_type(e.val), base + i * es, e.left);
+        } else {
+            store_at(c, base + i * es, et, e);
+        }
+        e = e.next;
+        i += 1;
+    }
+}
+
 fn gen_stmt(c: ^Ctx, n: ^Node) {
     let s: ^Node = n;
     while s != 0 {
         let k: i64 = s.kind;
         if k == 93 {
-            gen_expr(c, s.left);
-            let off_let: i64 = local_find(c, s.val);
-            if off_let != 0 { store_local(c, off_let); }
+            if is_array(s.start) == 1 {
+                gen_array_init(c, local_find(c, s.val), s.start, s.left);
+            } else {
+                gen_expr(c, s.left);
+                let off_let: i64 = local_find(c, s.val);
+                if off_let != 0 { store_local(c, off_let); }
+            }
         }
         if k == 94 {
             gen_expr(c, s.left);
@@ -266,6 +340,7 @@ fn gen_stmt(c: ^Ctx, n: ^Node) {
 fn gen_fn(c: ^Ctx, f: ^Node) {
     c.ln.* = 0;
     c.rn.* = 0;
+    c.loff.* = 0;
     collect_locals(c, f.body);
     add_params(c, f.left);
     eb(c, 0x55);                                  // push rbp

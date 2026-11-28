@@ -55,6 +55,12 @@ struct Field {
     ty: i64,
 }
 
+struct Arr {
+    elem: i64,
+    count: i64,
+    size: i64,
+}
+
 struct Ctx {
     toks: ^Token,
     src: ^u8,
@@ -73,6 +79,9 @@ struct Ctx {
     fields: ^Field,
     sc: ^i64,
     fcn: ^i64,
+    arrs: ^Arr,
+    ac: ^i64,
+    loff: ^i64,
     entry: i64,
 }
 

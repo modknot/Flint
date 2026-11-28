@@ -14,13 +14,13 @@ fn main() -> i64 {
     sample[20] = 0;
 
     let mag: ^u64 = 0x140001440;
-    let acp: ^u64 = 0x140001448;
-    let avp: ^u64 = 0x140001450;
+    let argcp: ^u64 = 0x140001448;
+    let argvp: ^u64 = 0x140001450;
     let in_path: ^u8 = sample;
     let in_len: i64 = 20;
     if mag.* == 0x464C495441524756 {
-        if acp.* >= 2 {
-            let tbl: ^u64 = avp.* as ^u64;
+        if argcp.* >= 2 {
+            let tbl: ^u64 = argvp.* as ^u64;
             in_path = tbl[1] as ^u8;
             in_len = path_len(in_path);
         }
@@ -48,11 +48,15 @@ fn main() -> i64 {
     let fields: ^Field = alloc(0x20000, 8);
     let scp: ^i64 = alloc(8, 8); scp.* = 0;
     let fcn: ^i64 = alloc(8, 8); fcn.* = 0;
+    let arrs: ^Arr = alloc(0x4000, 8);
+    let acp: ^i64 = alloc(8, 8); acp.* = 0;
+    let loffp: ^i64 = alloc(8, 8); loffp.* = 0;
     let c: ^Ctx = alloc(0x100, 8);
     c.toks = toks; c.src = src; c.locals = locals; c.ln = ln; c.pos = pos;
     c.code = code; c.clen = clen; c.rets = rets; c.rn = rn;
     c.funcs = funcs; c.fc = fnp; c.calls = callsp; c.cn = cnp;
     c.structs = structs; c.fields = fields; c.sc = scp; c.fcn = fcn;
+    c.arrs = arrs; c.ac = acp; c.loff = loffp;
 
     let prog: ^Node = parse_program(c);
     if prog == 0 { print(12); return 1; }
@@ -74,8 +78,8 @@ fn main() -> i64 {
     let out_path: ^u8 = pe_path;
     let out_len: i64 = 19;
     if mag.* == 0x464C495441524756 {
-        if acp.* >= 3 {
-            let otbl: ^u64 = avp.* as ^u64;
+        if argcp.* >= 3 {
+            let otbl: ^u64 = argvp.* as ^u64;
             out_path = otbl[2] as ^u8;
             out_len = path_len(out_path);
         }

@@ -148,7 +148,7 @@ rt_print:
     call [rel iat_GetStdHandle]
     mov [rbp-0x10], rax
     mov rax, [rbp+16]
-    lea r11, [rbp-0x30]
+    lea r11, [rbp-0x20]
     xor r8d, r8d
     xor r9d, r9d
     test rax, rax
@@ -203,7 +203,7 @@ rt_args_init:
     push r13
     push r14
     push r15
-    sub rsp, 0x28
+    sub rsp, 0x30
     mov rcx, 0x464C495441524756
     cmp qword [rel arg_magic], rcx
     je .done
@@ -279,7 +279,7 @@ rt_args_init:
     mov rcx, 0x464C495441524756
     mov [rel arg_magic], rcx
 .done:
-    add rsp, 0x28
+    add rsp, 0x30
     pop r15
     pop r14
     pop r13

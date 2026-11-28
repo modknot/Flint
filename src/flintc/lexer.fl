@@ -31,6 +31,13 @@ fn is_ident(c: i64) -> i64 {
     return 0;
 }
 
+fn type_is_byte(c: ^Ctx, tok: i64) -> i64 {
+    if c.toks[tok].len != 4 { return 0; }
+    let s: i64 = c.toks[tok].start;
+    if c.src[s] as i64 == 98 { if c.src[s + 1] as i64 == 121 { if c.src[s + 2] as i64 == 116 { if c.src[s + 3] as i64 == 101 { return 1; } } } }
+    return 0;
+}
+
 fn keyword(src: ^u8, o: i64, n: i64) -> i64 {
     if n == 2 {
         if src[o] as i64 == 102 { if src[o + 1] as i64 == 110 { return 3; } }
@@ -111,6 +118,44 @@ fn lex(src: ^u8, n: i64, toks: ^Token) -> i64 {
                     }
                 }
                 toks[c].kind = 2; toks[c].start = st_num; toks[c].len = i - st_num; toks[c].val = v;
+                c += 1;
+                handled = 1;
+            }
+        }
+
+        if handled == 0 {
+            if b == 39 {
+                let st_ch: i64 = i;
+                let chv: i64 = 0;
+                i += 1;
+                if i < n {
+                    let cb: i64 = src[i] as i64;
+                    if cb == 92 {
+                        i += 1;
+                        if i < n {
+                            let esc: i64 = src[i] as i64;
+                            if esc == 110 { chv = 10; }
+                            if esc == 114 { chv = 13; }
+                            if esc == 116 { chv = 9; }
+                            if esc == 48 { chv = 0; }
+                            if esc == 92 { chv = 92; }
+                            if esc == 39 { chv = 39; }
+                            if esc == 34 { chv = 34; }
+                            if esc == 120 {
+                                if i + 2 < n {
+                                    chv = hex_val(src[i + 1] as i64) * 16 + hex_val(src[i + 2] as i64);
+                                    i += 2;
+                                }
+                            }
+                            i += 1;
+                        }
+                    } else {
+                        chv = cb;
+                        i += 1;
+                    }
+                }
+                if i < n { if src[i] as i64 == 39 { i += 1; } }
+                toks[c].kind = 43; toks[c].start = st_ch; toks[c].len = i - st_ch; toks[c].val = chv;
                 c += 1;
                 handled = 1;
             }

@@ -13,9 +13,9 @@ fn main() -> i64 {
     sample[16] = 116; sample[17] = 46; sample[18] = 102; sample[19] = 108;
     sample[20] = 0;
 
-    let mag: ^u64 = 0x140001420;
-    let acp: ^u64 = 0x140001428;
-    let avp: ^u64 = 0x140001430;
+    let mag: ^u64 = 0x140001440;
+    let acp: ^u64 = 0x140001448;
+    let avp: ^u64 = 0x140001450;
     let in_path: ^u8 = sample;
     let in_len: i64 = 20;
     if mag.* == 0x464C495441524756 {
@@ -26,8 +26,8 @@ fn main() -> i64 {
         }
     }
 
-    let src: ^u8 = alloc(0x20000, 8);
-    let sn: i64 = readfile(in_path, in_len, src, 0x20000);
+    let src: ^u8 = alloc(0x40000, 8);
+    let sn: i64 = expand_source(in_path, in_len, src, 0x40000);
     if sn == 0 { print(11); return 1; }
 
     let toks: ^Token = alloc(0x100000, 8);

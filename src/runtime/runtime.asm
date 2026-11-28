@@ -23,6 +23,7 @@ rt_alloc:
     push rbp
     mov rbp, rsp
     sub rsp, 0x30
+    and rsp, -16
     call rt_args_init
     xor ecx, ecx
     mov rdx, [rbp+16]
@@ -40,6 +41,7 @@ rt_free:
     push rbp
     mov rbp, rsp
     sub rsp, 0x30
+    and rsp, -16
     mov rcx, [rbp+16]
     xor edx, edx
     mov r8d, 0x8000
@@ -56,6 +58,7 @@ rt_writefile:
     push rbp
     mov rbp, rsp
     sub rsp, 0x60
+    and rsp, -16
     mov rcx, [rbp+16]
     mov edx, 0x40000000
     xor r8d, r8d
@@ -95,6 +98,7 @@ rt_readfile:
     push rbp
     mov rbp, rsp
     sub rsp, 0x60
+    and rsp, -16
     mov rcx, [rbp+16]
     mov edx, 0x80000000
     mov r8d, 1
@@ -117,7 +121,7 @@ rt_readfile:
     call [rel iat_CloseHandle]
     cmp qword [rbp-0x18], 0
     jz .rf_fail
-    mov rax, [rbp-8]
+    mov eax, [rbp-8]
     mov rsp, rbp
     pop rbp
     ret
@@ -128,12 +132,16 @@ rt_readfile:
     ret
 
 ; ---------------------------------------------------------------------------
+; 一个字节填充，保持 rt_print 在运行库内的偏移为 494。
+; ---------------------------------------------------------------------------
+    db 0x90
 ; rt_print(value) -> 0
 ; ---------------------------------------------------------------------------
 rt_print:
     push rbp
     mov rbp, rsp
     sub rsp, 0x60
+    and rsp, -16
     mov rcx, -11
     call [rel iat_GetStdHandle]
     mov [rbp-0x10], rax

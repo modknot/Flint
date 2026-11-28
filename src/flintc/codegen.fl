@@ -270,6 +270,7 @@ fn gen_fn(c: ^Ctx, f: ^Node) {
     add_params(c, f.left);
     eb(c, 0x55);                                  // push rbp
     eb(c, 0x48); eb(c, 0x89); eb(c, 0xE5);        // mov rbp,rsp
+    eb(c, 0x48); eb(c, 0x83); eb(c, 0xE4); eb(c, 0xF0); // and rsp,-16
     eb(c, 0x48); eb(c, 0x81); eb(c, 0xEC); e32(c, 0x400); // sub rsp,0x400
     gen_stmt(c, f.body);
     let ep: i64 = c.clen.*;
@@ -288,16 +289,16 @@ fn builtin_find(c: ^Ctx, ti: i64) -> i64 {
     while i < n { s += c.src[p + i]; i += 1; }
     if n == 5 {
         if s == 523 { return 0; }
-        if s == 557 { return 466; }
+        if s == 557 { return 494; }
     }
     if n == 4 {
-        if s == 418 { return 48; }
+        if s == 418 { return 55; }
     }
     if n == 9 {
-        if s == 971 { return 87; }
+        if s == 971 { return 101; }
     }
     if n == 8 {
-        if s == 828 { return 274; }
+        if s == 828 { return 295; }
     }
     return -1;
 }

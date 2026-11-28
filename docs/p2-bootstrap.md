@@ -15,6 +15,7 @@
 
 ```text
 common.fl         结构体、字节工具、路径工具
+source.fl         编译器侧的 // include: 模块加载器
 lexer.fl          词法器
 parser.fl         AST、表达式、语句、函数与调用解析
 codegen.fl        x86-64 代码生成、函数标签、调用回填
@@ -24,10 +25,12 @@ backend_macho.fl  Mach-O 64 后端
 main.fl           flintc 入口
 ```
 
-`build-flintc.ps1` 和 `bootstrap\gate.ps1` 会递归展开 `// include:` 指令，
-生成 `build\flintc.unit.fl`；构建脚本先用 `bootstrap\asm.ps1` 汇编 `src\seed` 得到
-`build\flint0.exe`，再由它编译该翻译单元。这样源码是多文件，第一代编译器仍只吃一个翻译单元；
-以后 flintc 自己支持模块时，再由编译器接管 include。
+`build-flintc.ps1` 和 `bootstrap\gate.ps1` 仍会用 PowerShell 展开
+`// include:` 生成 `build\flintc.unit.fl`，但这一步只用于喂给汇编种子
+`flint0` 和最初的 stage1/stage2。stage2 之后，`src\flintc\source.fl` 里的
+`expand_source` 让编译器自己读取并递归展开 include，路径相对包含该指令的
+源文件，深度上限 16。`build-flintc.ps1` 用 stage2 直接编译拆分的
+`src\flintc\flintc.fl` 得到 stage3，再由 stage3 编译同一份源码得到 stage4。
 
 ## 自举固定点
 
@@ -36,14 +39,16 @@ main.fl           flintc 入口
 ```text
 src/seed/*.asm -> flint0.exe -> flintc-stage1.exe
 flintc-stage1.exe -> flintc-stage2.exe
-flintc-stage2.exe -> flintc-stage3.exe
-stage2 == stage3（SHA-256 相同）
+flintc-stage2.exe -> flintc-stage3.exe（编译拆分源码，编译器自己展开 include）
+flintc-stage3.exe -> flintc-stage4.exe（编译拆分源码）
+stage2 == stage3 == stage4（SHA-256 相同）
 ```
 
 运行库 `src\runtime\runtime.asm` 由 `bootstrap\gen-runtime.ps1` 汇编并生成
-`src\flintc\runtime.fl`，运行库字节不再依赖外部工具或手写抄录。PE 导入表为
+`src\flintc\runtime.fl`，运行库字节不再依赖外部工具或手写抄录。当前运行库
+1122 字节；PE 导入表为
 `VirtualAlloc / VirtualFree / CreateFileA / ReadFile / WriteFile / CloseHandle /
-GetStdHandle / ExitProcess` 八项，IAT 和 ILT 都在节内 `0x2F000` 起。
+GetStdHandle / ExitProcess / GetCommandLineA` 九项，IAT 和 ILT 都在节内 `0x2F000` 起。
 
 ## 当前闸门 13 / 13
 
@@ -98,7 +103,8 @@ readfile(path: ^u8, pathlen: i64, buf: ^u8, maxlen: i64) -> i64
 - 已支持 `fn`、`let`、`return`、`if/else`、`while`、赋值、`+ - * / %`、比较、局部变量。
 - 已支持多函数程序、函数参数、函数调用、递归；参数按栈传递，调用者清理实参，局部栈帧固定 `0x400`。
 - 函数标签在全部函数生成后统一回填 `call rel32`，因此支持前向调用和自调用。
-- 编译器运行库在第一次 `alloc` 时用 `GetCommandLineA` 解析 `argc/argv`；`flintc.exe` 接受 `.fl` 输入和 PE 输出路径。无参数时保留自举默认路径 `build/flintc.unit.fl` → `build/flintc-out.exe`。仓库根的 `flintc.ps1` 负责展开 `// include:`，再调用 `flintc.exe`；`-AllTargets` 同时导出 ELF/Mach-O。
+- 编译器运行库在第一次 `alloc` 时用 `GetCommandLineA` 解析 `argc/argv`；`flintc.exe` 接受 `.fl` 输入和 PE 输出路径。无参数时保留自举默认路径 `build/flintc.unit.fl` → `build/flintc-out.exe`。编译器自己展开 `// include:`，路径相对包含指令的文件；仓库根的 `flintc.ps1` 仍保留为兼容前端，`-AllTargets` 同时导出 ELF/Mach-O。
+- 编译器侧 include 目前限制递归深度 16，不做 `..` 规范化和专门缺失文件诊断；读取或展开失败时 `main` 输出 `11` 并返回 1。
 - Mach-O 已在 `macos-15-intel` 的 GitHub Actions 中实际运行，退出码 `20`；PE 已在 Windows 原生环境完成整条自举链并达到固定点，ELF 也已实际运行验证。
 - 后端只支持固定入口，未实现重定位、符号表、动态链接。
 

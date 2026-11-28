@@ -14,15 +14,17 @@ The first-generation compiler is checked in as x86-64 assembly source under
 `src/seed/`. `bootstrap/asm.ps1` is the project's own two-pass assembler; it
 turns that source into `build/flint0.exe`. No prebuilt compiler binary, NASM,
 C compiler, linker, or Python interpreter is required. `flint0` then compiles
-`src/flintc` into `build/flintc.exe`. A later stage is built by the compiler
-that came before it.
+`src/flintc` into the first self-hosted stage. Later stages are built by the
+compiler that came before them; from stage 2 onward the compiler expands
+`// include:` itself instead of relying on the PowerShell preprocessor.
 
 ## Status
 
 - Stage 0 acceptance tests: **17 / 17**.
 - Bootstrap gate: **13 / 13** (`bootstrap/gate.ps1`).
-- Self-host fixed point reached: stage 2 and stage 3 compilers are byte-identical
-  (`bootstrap/bootstrap.ps1`).
+- Next-generation fixed point reached: stage 2, stage 3 and stage 4 are
+  byte-identical (`bootstrap/bootstrap.ps1`). Stage 3 and stage 4 are built from
+  the split `src/flintc` source by the compiler's built-in `// include:` loader.
 - `flintc` supports `fn`, `let`, `return`, `if/else`, `while`, assignment,
   `+ - * / %`, comparisons, local variables, multiple functions, parameters,
   calls, and recursion.
@@ -52,27 +54,37 @@ build/flint0.exe
         |
         |  compiles the expanded src/flintc translation unit
         v
-build/flintc.exe
+build/flintc-stage1.exe
         |
-        |  flintc compiles the same translation unit again
+        |  compiles the same expanded unit
         v
-build/flintc-stage2.exe  ==  build/flintc-stage3.exe   (fixed point)
+build/flintc-stage2.exe
+        |
+        |  compiles the split src/flintc tree (built-in include loader)
+        v
+build/flintc-stage3.exe
+        |
+        |  compiles the split tree again (built-in include loader)
+        v
+build/flintc-stage4.exe   ==  stage2  ==  stage3   (fixed point)
 ```
 
-`bootstrap/bootstrap.ps1` performs the whole chain and fails unless stage 2 and
-stage 3 are byte-identical. The runtime library itself is assembled from
-`src/runtime/runtime.asm` by `bootstrap/gen-runtime.ps1`, which regenerates
+`bootstrap/bootstrap.ps1` performs the whole chain and fails unless stage 2,
+stage 3 and stage 4 are byte-identical. The runtime library itself is assembled
+from `src/runtime/runtime.asm` by `bootstrap/gen-runtime.ps1`, which regenerates
 `src/flintc/runtime.fl`; no runtime bytes are copied from an external toolchain.
 
-`build-flintc.ps1` expands the `// include:` directives in
-`src/flintc/flintc.fl` into one translation unit, assembles `flint0` from
-`src/seed`, then passes the unit to `flint0`. Build outputs stay in `build/` and
-are never committed.
+`build-flintc.ps1` expands `src/flintc/flintc.fl` into one translation unit only
+for the assembly seed and the first self-hosted stages, which cannot read
+`// include:` yet. From stage 2 onward the compiler reads the split tree
+directly; the script compiles stage 2 with the compiler loader into stage 3,
+stage 3 into stage 4, checks the fixed point, and installs stage 3 as
+`build/flintc.exe`. Build outputs stay in `build/` and are never committed.
 
-The current `flintc` runs in bootstrap mode: it reads the expanded compiler
-source from `build/flintc.unit.fl` and writes `build/flintc-out.exe`. A normal
-`argc/argv` command-line entry is the next task. The fixed-point self-hosted
-build is already reached by `bootstrap/bootstrap.ps1`.
+`flintc` parses native `argc/argv`, reads the input `.fl` file, recursively
+expands `// include:` relative to the including file, and writes the target
+output. With no arguments it keeps the bootstrap defaults
+(`build/flintc.unit.fl` -> `build/flintc-out.exe`).
 
 ## Source layout
 
@@ -83,9 +95,10 @@ bootstrap/asm.ps1          project's own two-pass x86-64 assembler
 bootstrap/build-flint0.ps1 assemble seed into build/flint0.exe
 bootstrap/bootstrap.ps1    full seed -> flint0 -> flintc -> fixed point check
 bootstrap/gen-runtime.ps1  assemble src/runtime and regenerate runtime.fl
-flintc.ps1                 command-line front end for the self-hosted compiler
-build-flintc.ps1           assemble flint0, expand includes, compile flintc
-scripts/flint-source.ps1   recursive // include: expansion
+flintc.ps1                 compatibility front end; the compiler now expands includes itself
+build-flintc.ps1           assemble flint0, bootstrap stage1/stage2, build stage3/stage4
+scripts/flint-source.ps1   bootstrap-only recursive // include: expansion
+src/flintc/source.fl       compiler-side // include: loader
 src/flintc/flintc.fl       flintc source root; includes the modules below
 src/flintc/common.fl       token/node/local/function/struct structures
 src/flintc/lexer.fl        lexer and keyword table
@@ -114,17 +127,17 @@ pwsh -NoProfile -File build-flintc.ps1 # build build/flintc.exe from split sourc
 ## Run
 
 ```powershell
-pwsh -NoProfile -File flintc.ps1 src\flintc\sample.fl build\sample.exe
+build\flintc.exe src\flintc\sample.fl build\sample.exe
 build\sample.exe   # exit code 20
 pwsh -NoProfile -File flintc.ps1 src\flintc\sample.fl build\sample.exe -AllTargets
 ```
 
-`flintc.ps1` expands `// include:` directives, then invokes the self-hosted
-compiler with the input and output paths. `build\flintc.exe` parses `argc/argv`
-at runtime and writes the PE directly; `-AllTargets` also copies the ELF64 and
-Mach-O files. With no arguments the compiler keeps the bootstrap defaults
-(`build/flintc.unit.fl` -> `build/flintc-out.exe`), and
-`bootstrap/bootstrap.ps1` drives the fixed-point chain.
+`build\flintc.exe` parses `argc/argv` at runtime, expands `// include:` itself,
+and writes the PE directly; `-AllTargets` is handled by the compatibility
+wrapper, which also copies the ELF64 and Mach-O files. With no arguments the
+compiler keeps the bootstrap defaults (`build/flintc.unit.fl` ->
+`build/flintc-out.exe`), and `bootstrap/bootstrap.ps1` drives the fixed-point
+chain.
 
 ## Tests
 

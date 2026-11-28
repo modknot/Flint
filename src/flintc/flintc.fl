@@ -1,7 +1,9 @@
 // Flint compiler source root v0.4
-// One compiler, split into modules. The build scripts expand the include
-// directives below, in order, into build/flintc.unit.fl before invoking the seed.
+// One compiler, split into modules. The build scripts expand these directives
+// into build/flintc.unit.fl for the assembly seed; the compiler itself expands
+// them from stage 2 onward, relative to this file.
 // include: common.fl
+// include: source.fl
 // include: lexer.fl
 // include: parser.fl
 // include: codegen.fl

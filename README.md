@@ -83,6 +83,7 @@ bootstrap/asm.ps1          project's own two-pass x86-64 assembler
 bootstrap/build-flint0.ps1 assemble seed into build/flint0.exe
 bootstrap/bootstrap.ps1    full seed -> flint0 -> flintc -> fixed point check
 bootstrap/gen-runtime.ps1  assemble src/runtime and regenerate runtime.fl
+flintc.ps1                 command-line front end for the self-hosted compiler
 build-flintc.ps1           assemble flint0, expand includes, compile flintc
 scripts/flint-source.ps1   recursive // include: expansion
 src/flintc/flintc.fl       flintc source root; includes the modules below
@@ -113,13 +114,17 @@ pwsh -NoProfile -File build-flintc.ps1 # build build/flintc.exe from split sourc
 ## Run
 
 ```powershell
-build\flintc.exe
-build\flintc-pe.exe
+pwsh -NoProfile -File flintc.ps1 src\flintc\sample.fl build\sample.exe
+build\sample.exe   # exit code 20
+pwsh -NoProfile -File flintc.ps1 src\flintc\sample.fl build\sample.exe -AllTargets
 ```
 
-In bootstrap mode `flintc` reads `build/flintc.unit.fl` and writes
-`build/flintc-out.exe` plus the test PE/ELF/Mach-O files. `bootstrap/bootstrap.ps1`
-drives this chain. A normal `argc/argv` command-line entry is the next task.
+`flintc.ps1` is the command-line front end: it expands includes, feeds the
+source to the self-hosted compiler, and copies out the PE. `-AllTargets` also
+copies the ELF64 and Mach-O files. In bootstrap mode `build\flintc.exe` reads
+`build/flintc.unit.fl` and writes `build/flintc-out.exe`; `bootstrap/bootstrap.ps1`
+drives the fixed-point chain. Native `argc/argv` inside `flintc` itself is still
+on the task list.
 
 ## Tests
 

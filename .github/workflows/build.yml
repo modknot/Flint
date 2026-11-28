@@ -19,6 +19,13 @@ jobs:
           pwsh -NoProfile -File build-flintc.ps1
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      - name: Bootstrap fixed point
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File bootstrap\bootstrap.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Bootstrap gate
         shell: pwsh
         run: |
@@ -26,11 +33,11 @@ jobs:
           pwsh -NoProfile -File bootstrap\gate.ps1
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Run flintc and Windows PE target
+      - name: Compile sample and run Windows PE target
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          & .\build\flintc.exe
+          pwsh -NoProfile -File flintc.ps1 -InputFile src\flintc\sample.fl -OutputFile build\flintc-pe.exe -AllTargets
           if ($LASTEXITCODE -ne 0) { throw "flintc exited $LASTEXITCODE" }
           $p = Start-Process -FilePath (Resolve-Path 'build\flintc-pe.exe') -Wait -PassThru
           if ($p.ExitCode -ne 20) { throw "PE target exited $($p.ExitCode), expected 20" }
@@ -41,8 +48,8 @@ jobs:
           name: flint-targets
           path: |
             build/flintc-pe.exe
-            build/flintc-elf
-            build/flintc-macho
+            build/flintc-pe.elf
+            build/flintc-pe.macho
           if-no-files-found: error
 
   linux-run:
@@ -55,10 +62,10 @@ jobs:
 
       - name: Run ELF64 target
         run: |
-          chmod +x flintc-elf
-          file flintc-elf
+          chmod +x flintc-pe.elf
+          file flintc-pe.elf
           set +e
-          ./flintc-elf
+          ./flintc-pe.elf
           code=$?
           set -e
           echo "ELF exit=$code"
@@ -75,11 +82,11 @@ jobs:
       - name: Run Mach-O target
         run: |
           uname -m
-          chmod +x flintc-macho
-          xattr -d com.apple.quarantine flintc-macho 2>/dev/null || true
-          file flintc-macho
+          chmod +x flintc-pe.macho
+          xattr -d com.apple.quarantine flintc-pe.macho 2>/dev/null || true
+          file flintc-pe.macho
           set +e
-          ./flintc-macho
+          ./flintc-pe.macho
           code=$?
           set -e
           echo "Mach-O exit=$code"

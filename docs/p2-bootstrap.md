@@ -98,13 +98,13 @@ readfile(path: ^u8, pathlen: i64, buf: ^u8, maxlen: i64) -> i64
 - 已支持 `fn`、`let`、`return`、`if/else`、`while`、赋值、`+ - * / %`、比较、局部变量。
 - 已支持多函数程序、函数参数、函数调用、递归；参数按栈传递，调用者清理实参，局部栈帧固定 `0x400`。
 - 函数标签在全部函数生成后统一回填 `call rel32`，因此支持前向调用和自调用。
-- 尚未接 `argc/argv`；自举模式固定读取 `build/flintc.unit.fl`，固定写 `build/flintc-out.exe`。
+- 尚未在编译器内部接 `argc/argv`；自举模式固定读取 `build/flintc.unit.fl`，固定写 `build/flintc-out.exe`。仓库根的 `flintc.ps1` 已提供普通命令行前端：输入 `.fl`、输出 PE，并可用 `-AllTargets` 同时导出 ELF/Mach-O。
 - Mach-O 已在 `macos-15-intel` 的 GitHub Actions 中实际运行，退出码 `20`；PE 已在 Windows 原生环境完成整条自举链并达到固定点，ELF 也已实际运行验证。
 - 后端只支持固定入口，未实现重定位、符号表、动态链接。
 
 ## 下一段
 
-- 让 flintc 读取命令行参数，不再写死 `build/flintc.unit.fl`。
+- 把 `argc/argv` 做进编译器自身，去掉自举模式的固定输入路径。
 - 解析器补字符串字面量、结构体、数组。
 - 代码生成补字符串常量、字段/下标寻址、全局数据段。
 - 阶段一规格 10 项待决签字。
